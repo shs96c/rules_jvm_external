@@ -47,6 +47,17 @@ def maven_install(
         artifacts = [],
         fetch_sources = False,
         use_unsafe_shared_cache = False):
+    """Resolves and fetches artifacts transitively from Maven repositories.
+
+    This macro runs coursier_fetch, a repository rule that invokes the Coursier CLI
+    to resolve and fetch Maven artifacts transitively.
+
+    Args:
+      name: A unique name for this Bazel external repository.
+      repositories: A list of Maven repository URLs, specified in lookup order.
+
+        Supports URLs with HTTP Basic Authentication, e.g. "https://username:password@example.com".
+    """
 
     repositories_json_strings = []
     for repository in parse.parse_repository_spec_list(repositories):
