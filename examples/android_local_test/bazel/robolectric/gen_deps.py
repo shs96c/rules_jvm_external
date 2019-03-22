@@ -17,13 +17,15 @@ import sys
 
 def getKey(jar):
   key = "org.robolectric\:android-all\:"
-  version = jar.split("/")[-2:-1].pop()
+  # version = jar.split("/")[-2:-1].pop()
+  version = jar.split("/")[-1].replace("android-all-", "").replace(".jar", "")
   key = key + version
   return key
 
 
 def getValue(jar):
-  return "../../../" + jar[jar.index("maven"):]
+  return ("../../../" + jar[jar.index("external"):]).replace("external/", "")
+  # return "../../../" + jar[jar.index("maven"):]
 
 
 def main(argv):

@@ -23,3 +23,17 @@ maven_install(
         "https://repo1.maven.org/maven2",
     ],
 )
+
+mabel_version = "9e10a66d9eb06c20a04d9422a6835dcb64d39c66"
+http_archive(
+    name = "mabel",
+    urls = ["https://github.com/menny/mabel/archive/%s.zip" % mabel_version],
+    type = "zip",
+    strip_prefix = "mabel-%s" % mabel_version
+)
+
+load("@mabel//resolver/main_deps:dependencies.bzl", generate_bazel_mvn_deps_workspace_rules = "generate_workspace_rules")
+generate_bazel_mvn_deps_workspace_rules()
+
+load("//bazel/robolectric/main_deps:dependencies.bzl", main_mabel_deps_rules = "generate_workspace_rules")
+main_mabel_deps_rules()
