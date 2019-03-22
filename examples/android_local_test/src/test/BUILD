@@ -8,7 +8,9 @@ android_local_test(
     deps = [
         "//bazel/robolectric",
         "//src/main:my_lib",
-        artifact("org.robolectric:shadows-framework"),
-        artifact("org.assertj:assertj-core"),
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_robolectric_annotations",
+        "@maven//:org_robolectric_shadows_framework",
+        "@maven//:org_assertj_assertj_core",
     ],
 )

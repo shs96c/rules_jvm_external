@@ -14,26 +14,48 @@
 
 package com.example.bazel;
 
+
+import android.os.SystemProperties;
+import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Properties;
+import org.robolectric.annotation.Implementation;
+import org.robolectric.annotation.Implements;
+import org.robolectric.annotation.Resetter;
+
 import android.app.Activity;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.android.controller.ActivityController;
 
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.robolectric.RobolectricTestRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Junit Test using Robolectric with AssertJ matchers.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestRunner.class)
 public class MainActivityTest {
   @Test
   public void testOnCreateNotNull() {
     ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class);
     Activity activity = controller.create().destroy().get();
-
     assertThat(activity).isNotNull();
   }
+
+  @Test
+  public void testCanLoadProperties() {
+    ClassLoader cl = SystemProperties.class.getClassLoader();
+    URL urlFromCl = cl.getResource("build.prop");
+    try (InputStream is = cl.getResourceAsStream("build.prop")) {
+      assertThat(is).isNotNull();
+    } catch (IOException e) {
+      throw new RuntimeException("failed to load build.prop", e);
+    }
+  }
+
 }
