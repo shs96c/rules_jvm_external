@@ -9,8 +9,6 @@ android_local_test(
         "//bazel/robolectric",
         "//src/main:my_lib",
         "@maven//:com_google_guava_guava",
-        "@maven//:org_robolectric_annotations",
-        "@maven//:org_robolectric_shadows_framework",
         "@maven//:org_assertj_assertj_core",
     ],
 )
