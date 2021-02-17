@@ -7,6 +7,9 @@ java_binary(
         "-target",
         "8",
     ],
+    deps = [
+        "//private/tools/java/rules/jvm/external:byte-streams",
+    ],
     main_class = "rules.jvm.external.jar.AddJarManifestEntry",
     visibility = [
         "//visibility:public",
