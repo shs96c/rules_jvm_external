@@ -1,3 +1,5 @@
+common --experimental_enable_bzlmod
+
 # Set the default java toolchain
 build --java_runtime_version=remotejdk_11
 build --tool_java_language_version=11

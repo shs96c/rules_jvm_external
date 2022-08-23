@@ -1,0 +1,24 @@
+bazel_dep(name = "protobuf", version = "3.19.2", repo_name = "com_google_protobuf")
+
+bazel_dep(name = "rules_jvm_external", version = "5.0.0")
+
+bazel_dep(name = "rules_proto", version = "4.0.0")
+
+local_path_override(
+    module_name = "rules_jvm_external", # matches the name of the `bazel_dep`
+    path = "../..",
+)
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+
+protobuf_version = "3.11.3"
+
+maven.install(
+    artifacts = [
+        "com.google.guava:guava:29.0-jre",
+        "com.google.protobuf:protobuf-java:%s" % protobuf_version,
+    ],
+    lock_file = "//:maven_install.json",
+)
+
+use_repo(maven, "maven")
