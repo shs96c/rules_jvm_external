@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 
 load("//private/rules:jetifier.bzl", "jetify_artifact_dependencies", "jetify_maven_coord")
-load("//private/rules:v1_lock_file.bzl", "create_dependency", "v1_lock_file")
+load("//private/rules:v1_lock_file.bzl", "v1_lock_file")
+load("//private/rules:v2_lock_file.bzl", "v2_lock_file")
 load("//:specs.bzl", "parse", "utils")
 load("//private:artifact_utilities.bzl", "deduplicate_and_sort_artifacts")
 load("//private:coursier_utilities.bzl", "SUPPORTED_PACKAGING_TYPES", "escape", "is_maven_local_path")
@@ -24,7 +25,6 @@ load(
     "COURSIER_CLI_BAZEL_MIRROR_URL",
     "COURSIER_CLI_GITHUB_ASSET_URL",
     "COURSIER_CLI_SHA256",
-    "JQ_VERSIONS",
 )
 
 _BUILD = """
@@ -55,27 +55,13 @@ load("%s", "aar_import")
 """
 
 _BUILD_PIN = """
-genrule(
-    name = "jq-binary",
-    cmd = "cp $< $@",
-    outs = ["jq"],
-    srcs = select({{
-        "@bazel_tools//src/conditions:linux_aarch64": ["jq-linux"],
-        "@bazel_tools//src/conditions:linux_x86_64": ["jq-linux"],
-        "@bazel_tools//src/conditions:darwin": ["jq-macos"],
-        "@bazel_tools//src/conditions:windows": ["jq-windows"],
-    }}),
-)
-
 sh_binary(
     name = "pin",
     srcs = ["pin.sh"],
     args = [
-      "$(rootpath :jq-binary)",
       "$(location :unsorted_deps.json)",
     ],
     data = [
-        ":jq-binary",
         ":unsorted_deps.json",
     ],
     visibility = ["//visibility:public"],
@@ -406,22 +392,6 @@ def get_home_netrc_contents(repository_ctx):
                 return repository_ctx.read(netrcfile)
     return ""
 
-def _get_jq_http_files():
-    """Returns repository targets for the `jq` dependency that `pin.sh` needs."""
-    lines = []
-    for jq in JQ_VERSIONS:
-        lines.extend([
-            "    maybe(",
-            "        http_file,",
-            "        name = \"rules_jvm_external_jq_%s\"," % jq,
-            "        urls = %s," % repr([JQ_VERSIONS[jq].url]),
-            "        sha256 = %s," % repr(JQ_VERSIONS[jq].sha256),
-            "        downloaded_file_path = \"jq\",",
-            "        executable = True,",
-            "    )",
-        ])
-    return lines
-
 def _add_outdated_files(repository_ctx, artifacts, repositories):
     repository_ctx.file(
         "outdated.artifacts",
@@ -476,7 +446,14 @@ def _pinned_coursier_fetch_impl(repository_ctx):
     )
     maven_install_json_content = json.decode(repository_ctx.read(repository_ctx.attr.maven_install_json))
 
-    importer = v1_lock_file
+    if v1_lock_file.is_valid_lock_file(maven_install_json_content):
+        importer = v1_lock_file
+        print("Lock file should be updated. Please run `REPIN=1 bazel run @unpinned_%s//:pin`" % repository_ctx.name)
+    elif v2_lock_file.is_valid_lock_file(maven_install_json_content):
+        importer = v2_lock_file
+    else:
+        fail("Unable to read lock file: " + repository_ctx.attr.maven_install_json)
+
     # Validation steps for maven_install.json.
 
     # Validate that there's a dependency_tree element in the parsed JSON.
@@ -518,7 +495,11 @@ def _pinned_coursier_fetch_impl(repository_ctx):
     elif importer.compute_lock_file_hash(maven_install_json_content) != dep_tree_signature:
         # Then, validate that the signature provided matches the contents of the dependency_tree.
         # This is to stop users from manually modifying maven_install.json.
-        fail("%s_install.json contains an invalid signature and may be corrupted. " % repository_ctx.name +
+        fail("%s_install.json contains an invalid signature (expected %s and got %s) and may be corrupted. " % (
+                 repository_ctx.name,
+                 dep_tree_signature,
+                 importer.compute_lock_file_hash(maven_install_json_content),
+             ) +
              "PLEASE DO NOT MODIFY THIS FILE DIRECTLY! To generate a new " +
              "%s_install.json and re-pin the artifacts, follow these steps: \n\n" % repository_ctx.name +
              "  1) In your WORKSPACE file, comment or remove the 'maven_install_json' attribute in 'maven_install'.\n" +
@@ -555,8 +536,6 @@ def _pinned_coursier_fetch_impl(repository_ctx):
         ))
         http_files.append("        downloaded_file_path = \"%s\"," % artifact["file"])
         http_files.append("    )")
-
-    http_files.extend(_get_jq_http_files())
 
     http_files.extend(["maven_artifacts = [\n%s\n]" % (",\n".join(["    \"%s\"" % artifact for artifact in maven_artifacts]))])
 
@@ -860,12 +839,6 @@ def make_coursier_dep_tree(
         _is_verbose(repository_ctx),
     )
 
-def _download_jq(repository_ctx):
-    jq_version = None
-
-    for (os, value) in JQ_VERSIONS.items():
-        repository_ctx.download(value.url, "jq-%s" % os, sha256 = value.sha256, executable = True)
-
 def remove_prefix(s, prefix):
     if s.startswith(prefix):
         return s[len(prefix):]
@@ -887,7 +860,6 @@ def _coursier_fetch_impl(repository_ctx):
         coursier_download_urls.append(coursier_url_from_env)
 
     repository_ctx.download(coursier_download_urls, "coursier", sha256 = COURSIER_CLI_SHA256, executable = True)
-    _download_jq(repository_ctx)
 
     # Try running coursier once
     cmd = _generate_java_jar_command(repository_ctx, repository_ctx.path("coursier"))
@@ -1123,16 +1095,44 @@ def _coursier_fetch_impl(repository_ctx):
         artifact.update({"sha256": shas[path]})
         artifact.update({"packages": jars_to_packages[path]})
 
-    dep_tree.update({
+    # Convert file here
+    repository_ctx.file(
+        "coursier-deps.json",
+        content = json.encode_indent(dep_tree),
+    )
+    reformat_lock_file_cmd = _generate_java_jar_command(
+        repository_ctx,
+        repository_ctx.path(repository_ctx.attr._lock_file_converter),
+    )
+    for repo in repositories:
+        reformat_lock_file_cmd.extend(["--repo", repo["repo_url"]])
+    reformat_lock_file_cmd.extend(["--json", "coursier-deps.json"])
+
+    result = _execute(
+        repository_ctx,
+        cmd = reformat_lock_file_cmd,
+        progress_message = "Updating lock file format",
+    )
+    if result.return_code:
+        fail("Unable to generate lock file: " + result.stderr)
+
+    lock_file_contents = json.decode(result.stdout)
+    dep_tree = {
         "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": "THERE_IS_NO_DATA_ONLY_ZUUL",
-        "__RESOLVED_ARTIFACTS_HASH": _compute_dependency_tree_signature(dep_tree["dependencies"]),
+        "__RESOLVED_ARTIFACTS_HASH": v2_lock_file.compute_lock_file_hash(lock_file_contents),
         "__INPUT_ARTIFACTS_HASH": compute_dependency_inputs_signature(repository_ctx.attr.artifacts, repository_ctx.attr.repositories),
-    })
+    }
+    dep_tree.update(lock_file_contents)
+
+    repository_ctx.file(
+        "unsorted_deps.json",
+        content = json.encode_indent(dep_tree, indent = "  "),
+    )
 
     repository_ctx.report_progress("Generating BUILD targets..")
     (generated_imports, jar_versionless_target_labels) = parser.generate_imports(
         repository_ctx = repository_ctx,
-        dependencies = [create_dependency(d) for d in dep_tree["dependencies"]],
+        dependencies = v2_lock_file.get_artifacts(dep_tree),
         explicit_artifacts = {
             a["group"] + ":" + a["artifact"] + (":" + a["classifier"] if "classifier" in a else ""): True
             for a in artifacts
@@ -1199,13 +1199,6 @@ def _coursier_fetch_impl(repository_ctx):
     # $ bazel run @unpinned_maven//:pin
     #
     # Create the maven_install.json export script for unpinned repositories.
-    dependency_tree_json = "{ \"dependency_tree\": " + repr(dep_tree).replace("None", "null") + "}"
-    repository_ctx.file(
-        "unsorted_deps.json",
-        content = "{dependency_tree_json}".format(
-            dependency_tree_json = dependency_tree_json,
-        ),
-    )
     repository_ctx.template(
         "pin.sh",
         repository_ctx.attr._pin,
@@ -1222,7 +1215,7 @@ def _coursier_fetch_impl(repository_ctx):
         "load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_file\")",
         "load(\"@bazel_tools//tools/build_defs/repo:utils.bzl\", \"maybe\")",
         "def pinned_maven_install():",
-    ] + _get_jq_http_files()
+    ]
     repository_ctx.file(
         "defs.bzl",
         "\n".join(http_files),
@@ -1302,6 +1295,7 @@ coursier_fetch = repository_rule(
     attrs = {
         "_sha256_hasher": attr.label(default = "//private/tools/prebuilt:hasher_deploy.jar"),
         "_list_packages": attr.label(default = "//private/tools/prebuilt:list_packages_deploy.jar"),
+        "_lock_file_converter": attr.label(default = "//private/tools/prebuilt:lock_file_converter_deploy.jar"),
         "_pin": attr.label(default = "//private:pin.sh"),
         "_compat_repository": attr.label(default = "//private:compat_repository.bzl"),
         "_outdated": attr.label(default = "//private:outdated.sh"),
