@@ -278,6 +278,16 @@ maven_install(
     ],
 )
 
+# Grab com.google.ar.sceneform:rendering because we overrode it above
+http_file(
+    name = "com.google.ar.sceneform_rendering",
+    downloaded_file_path = "rendering-1.10.0.aar",
+    sha256 = "d2f6cd1d54eee0d5557518d1edcf77a3ba37494ae94f9bb862e570ee426a3431",
+    urls = [
+        "https://dl.google.com/android/maven2/com/google/ar/sceneform/rendering/1.10.0/rendering-1.10.0.aar",
+    ],
+)
+
 maven_install(
     name = "testonly_testing",
     artifacts = [

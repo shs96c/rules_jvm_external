@@ -104,8 +104,19 @@ def _get_artifacts(lock_file_contents):
     repositories = lock_file_contents["repositories"]
 
     to_return = []
+    skipped = lock_file_contents.get("skipped", [])
 
     for coord in lock_file_contents["artifacts"]:
+        if coord in skipped:
+            to_return.append({
+                "coordinates": coord,
+                "file": None,
+                "sha256": None,
+                "deps": [key2coord[dep] if dep in key2coord else dep for dep in dependencies.get(key, [])],
+                "urls": [],
+            })
+            continue
+
         key = _to_key(coord)
 
         main = _create_artifact(
