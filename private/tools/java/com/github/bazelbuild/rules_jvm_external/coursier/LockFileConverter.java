@@ -91,6 +91,10 @@ public class LockFileConverter {
   }
 
   public Map<String, Object> generateV2LockFile() {
+    boolean isUsingM2Local = repositories.stream()
+            .map(String::toLowerCase)
+            .anyMatch(repo -> repo.equals("m2local/"));
+
     Map<String, Object> depTree = readDepTree();
 
     Map<Coordinates, Coordinates> mappings = deriveCoordinateMappings(depTree);
@@ -168,12 +172,15 @@ public class LockFileConverter {
     Map<String, Object> v2Lock = new LinkedHashMap<>();
     // The bit people care about
     v2Lock.put("artifacts", artifacts);
-    // The bits that changes most frequently
-    v2Lock.put("shasums", shasums);
-    // The rest
+    // The other bits
     v2Lock.put("dependencies", deps);
     v2Lock.put("packages", packages);
+    if (isUsingM2Local) {
+      v2Lock.put("m2local", isUsingM2Local);
+    }
     v2Lock.put("repositories", repos);
+    // The bits that only a machine really cares about
+    v2Lock.put("shasums", shasums);
     // And we need a version in there
     v2Lock.put("version", "2");
 

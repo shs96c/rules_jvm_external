@@ -81,6 +81,8 @@ def _create_artifact(coord, key, key2coord, shasums, dependencies, repositories)
     for (repo, entries) in repositories.items():
         if key in entries:
             urls.append(repo + file)
+    if len(urls) == 0:
+        urls.append(None)
 
     if not shasums.get(shasum_key):
         fail("Key is %s and shasums are %s" % (shasum_key, shasums.keys()))

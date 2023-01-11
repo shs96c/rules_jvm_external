@@ -616,6 +616,9 @@ def split_url(url):
     return protocol, url_parts
 
 def remove_auth_from_url(url):
+    if not url:
+        return None
+
     """Returns url without `user:pass@` or `user@`."""
     if "@" not in url:
         return url
@@ -1095,7 +1098,7 @@ def _coursier_fetch_impl(repository_ctx):
         artifact.update({"sha256": shas[path]})
         artifact.update({"packages": jars_to_packages[path]})
 
-    # Convert file here
+    # Keep the original output from coursier for debugging
     repository_ctx.file(
         "coursier-deps.json",
         content = json.encode_indent(dep_tree),
@@ -1108,6 +1111,7 @@ def _coursier_fetch_impl(repository_ctx):
         reformat_lock_file_cmd.extend(["--repo", repo["repo_url"]])
     reformat_lock_file_cmd.extend(["--json", "coursier-deps.json"])
 
+    # But update the format to the latest lock file
     result = _execute(
         repository_ctx,
         cmd = reformat_lock_file_cmd,
@@ -1128,6 +1132,19 @@ def _coursier_fetch_impl(repository_ctx):
         "unsorted_deps.json",
         content = json.encode_indent(dep_tree, indent = "  "),
     )
+
+    # The new lock file format assumes file paths can be derived from their
+    # coordinates. We've downloaded into a cache, so make the top-level
+    # directories from that cache available at the expected paths
+    cache_path = repository_ctx.path(get_coursier_cache_or_default(
+        repository_ctx,
+        repository_ctx.attr.use_unsafe_shared_cache or repository_ctx.attr.name.startswith("unpinned_"),
+    ))
+    for path in cache_path.readdir():
+        target = repository_ctx.path(path.basename)
+        if target.exists:
+            continue
+        repository_ctx.symlink(path, target)
 
     repository_ctx.report_progress("Generating BUILD targets..")
     (generated_imports, jar_versionless_target_labels) = parser.generate_imports(
