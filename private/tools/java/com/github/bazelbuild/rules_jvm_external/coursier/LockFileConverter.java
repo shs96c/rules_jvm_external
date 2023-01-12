@@ -10,6 +10,7 @@ import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -104,6 +105,7 @@ public class LockFileConverter {
     Map<String, Set<String>> packages = new TreeMap<>();
     Map<String, Set<String>> repos = new TreeMap<>();
     Set<String> skippedDeps = new TreeSet<>();
+    Map<Coordinates, String> fileMappings = new TreeMap<>();
 
     @SuppressWarnings("unchecked")
     Collection<Map<String, Object>> coursierDeps =
@@ -118,13 +120,19 @@ public class LockFileConverter {
       if (isSkipDep(coursierDep)) {
         // Coursier likes to include things that may have dependencies but
         // which don't have jars. We still need them in the graph so that
-        // everything gets wired up properly. We _could_ attempt to find the
+        // everything gets wired up properly. We _could_ attempt to find
         // the transitive dependencies and wire those into the lock file
         // neatly, but we're instead going to go for the clunkier solution
         // of recording that this dep has no outputs. When we read the lock
         // file, we'll generate an empty `java_library` which aggregates the
         // dependencies.
         skippedDeps.add(coord);
+      }
+
+      // If there's a file, make a note of where it came from
+      String file = (String) coursierDep.get("file");
+      if (file != null) {
+        fileMappings.put(coords, file);
       }
 
       String classifier = coords.getClassifier();
@@ -180,7 +188,9 @@ public class LockFileConverter {
     v2Lock.put("artifacts", artifacts);
     // The other bits
     v2Lock.put("dependencies", deps);
-    v2Lock.put("skipped", skippedDeps);
+    if (!skippedDeps.isEmpty()) {
+      v2Lock.put("skipped", skippedDeps);
+    }
     v2Lock.put("packages", packages);
     if (isUsingM2Local) {
       v2Lock.put("m2local", isUsingM2Local);
@@ -190,6 +200,9 @@ public class LockFileConverter {
     v2Lock.put("shasums", shasums);
     // And we need a version in there
     v2Lock.put("version", "2");
+
+    // Metadata we will discard eventually
+    v2Lock.put("files", fileMappings);
 
     return v2Lock;
   }
@@ -231,7 +244,11 @@ public class LockFileConverter {
       }
 
       // Files may be URL encoded. Decode
-      file = URLDecoder.decode(file, UTF_8);
+      try {
+        file = URLDecoder.decode(file, UTF_8.toString());
+      } catch (UnsupportedEncodingException e) {
+        throw new RuntimeException(e);
+      }
 
       if (file.endsWith(expectedPath)) {
         toReturn.put(coord, coord);
