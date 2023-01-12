@@ -1038,6 +1038,12 @@
       "org.slf4j:slf4j-api"
     ]
   },
+  "skipped": [
+    "com.fasterxml.jackson:jackson-bom:2.9.10",
+    "com.github.fommil.netlib:all:1.1.2",
+    "com.github.oshi:oshi-parent:3.4.0",
+    "org.junit:junit-bom:5.3.1"
+  ],
   "packages": {
     "android.arch.core:common": [
       "android.arch.core.internal",
@@ -5414,11 +5420,5 @@
       "jar": "0a7b1063fcaeb806b40b728d01b9361d38e1ed8deb93f945994fec7c1761dad1"
     }
   },
-  "skipped": [
-    "com.fasterxml.jackson:jackson-bom:2.9.10",
-    "com.github.fommil.netlib:all:1.1.2",
-    "com.github.oshi:oshi-parent:3.4.0",
-    "org.junit:junit-bom:5.3.1"
-  ],
   "version": "2"
 }

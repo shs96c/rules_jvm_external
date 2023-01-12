@@ -23,6 +23,9 @@
       "org.codehaus.mojo:animal-sniffer-annotations"
     ]
   },
+  "skipped": [
+    "com.google.guava:listenablefuture:jar:sources:9999.0-empty-to-avoid-conflict-with-guava"
+  ],
   "packages": {
     "com.google.code.findbugs:jsr305": [
       "javax.annotation",
