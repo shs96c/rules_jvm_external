@@ -150,7 +150,7 @@ public class LockFileConverter {
 
         @SuppressWarnings("unchecked")
         Collection<String> mirrorUrls =
-            (Collection<String>) coursierDep.getOrDefault("mirror_urls", Set.of());
+            (Collection<String>) coursierDep.getOrDefault("mirror_urls", new TreeMap<>());
         for (String mirrorUrl : mirrorUrls) {
           for (String repo : repositories) {
             if (mirrorUrl.startsWith(repo)) {
@@ -161,7 +161,7 @@ public class LockFileConverter {
 
         @SuppressWarnings("unchecked")
         Collection<String> depCoords =
-            (Collection<String>) coursierDep.getOrDefault("directDependencies", Set.of());
+            (Collection<String>) coursierDep.getOrDefault("directDependencies", new TreeMap<>());
         Set<String> directDeps =
             depCoords.stream()
                 .map(Coordinates::new)
@@ -175,7 +175,7 @@ public class LockFileConverter {
 
         @SuppressWarnings("unchecked")
         Collection<String> depPackages =
-            (Collection<String>) coursierDep.getOrDefault("packages", Set.of());
+            (Collection<String>) coursierDep.getOrDefault("packages", new TreeMap<>());
         if (!depPackages.isEmpty()) {
           packages.computeIfAbsent(key, k -> new TreeSet<>()).addAll(depPackages);
         }
