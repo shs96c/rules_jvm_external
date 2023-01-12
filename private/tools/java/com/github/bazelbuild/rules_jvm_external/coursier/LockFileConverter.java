@@ -35,6 +35,7 @@ public class LockFileConverter {
   public static void main(String[] args) {
     Path unsortedJson = null;
     Path output = null;
+    // Insertion order matters
     Set<String> repositories = new LinkedHashSet<>();
 
     for (int i = 0; i < args.length; i++) {
@@ -103,7 +104,10 @@ public class LockFileConverter {
     Map<String, Set<String>> deps = new TreeMap<>();
     Map<String, Map<String, String>> shasums = new TreeMap<>();
     Map<String, Set<String>> packages = new TreeMap<>();
-    Map<String, Set<String>> repos = new TreeMap<>();
+    // Insertion order matters
+    Map<String, Set<String>> repos = new LinkedHashMap<>();
+    repositories.forEach(r -> repos.put(r, new TreeSet<>()));
+
     Set<String> skippedDeps = new TreeSet<>();
     Map<Coordinates, String> fileMappings = new TreeMap<>();
 
@@ -154,7 +158,7 @@ public class LockFileConverter {
         for (String mirrorUrl : mirrorUrls) {
           for (String repo : repositories) {
             if (mirrorUrl.startsWith(repo)) {
-              repos.computeIfAbsent(repo, k -> new TreeSet<>()).add(key);
+              repos.get(repo).add(key);
             }
           }
         }
