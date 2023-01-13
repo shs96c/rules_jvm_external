@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 
 load("//private/rules:jetifier.bzl", "jetify_artifact_dependencies", "jetify_maven_coord")
+load("//private/rules:urls.bzl", "remove_auth_from_url")
 load("//private/rules:v1_lock_file.bzl", "v1_lock_file")
 load("//private/rules:v2_lock_file.bzl", "v2_lock_file")
 load("//:specs.bzl", "parse", "utils")
@@ -275,27 +276,6 @@ def _windows_check(repository_ctx):
                  "This is typically `c:\\msys64\\usr\\bin\\bash.exe`. For more information, read " +
                  "https://docs.bazel.build/versions/master/install-windows.html#getting-bazel")
 
-# Deterministically compute a signature of a list of artifacts in the dependency tree.
-# This is to prevent users from manually editing maven_install.json.
-def _compute_dependency_tree_signature(artifacts):
-    # A collection of elements from the dependency tree to be sorted and hashed
-    # into a signature for maven_install.json.
-    signature_inputs = []
-    for artifact in artifacts:
-        artifact_group = []
-        artifact_group.append(artifact["coord"])
-        if artifact["file"] != None:
-            artifact_group.extend([
-                artifact["sha256"],
-                _normalize_to_unix_path(artifact["file"]),  # Make sure we represent files in a stable way cross-platform
-            ])
-            if artifact["url"]:
-                artifact_group.append(artifact["url"])
-        if len(artifact["dependencies"]) > 0:
-            artifact_group.append(",".join(sorted(artifact["dependencies"])))
-        signature_inputs.append(":".join(artifact_group))
-    return hash(repr(sorted(signature_inputs)))
-
 # Compute a signature of the list of artifacts that will be used to build
 # the dependency tree. This is used as a check to see whether the dependency
 # tree needs to be repinned.
@@ -312,65 +292,6 @@ def compute_dependency_inputs_signature(artifacts, repositories):
         flattened = ":".join(["%s=%s" % (key, parsed[key]) for key in keys])
         artifact_inputs.append(flattened)
     return hash(repr(sorted(artifact_inputs))) ^ hash(repr(sorted(repositories)))
-
-def extract_netrc_from_auth_url(url):
-    """Return a dict showing the netrc machine, login, and password extracted from a url.
-
-    Returns:
-        A dict that is empty if there were no credentials in the url.
-        A dict that has three keys -- machine, login, password -- with their respective values. These values should be
-        what is needed for the netrc entry of the same name except for password whose value may be empty meaning that
-        there is no password for that login.
-    """
-    if "@" not in url:
-        return {}
-    protocol, url_parts = split_url(url)
-    login_password_host = url_parts[0]
-    if "@" not in login_password_host:
-        return {}
-    login_password, host = login_password_host.rsplit("@", 1)
-    login_password_split = login_password.split(":", 1)
-    login = login_password_split[0]
-
-    # If password is not provided, then this will be a 1-length split
-    if len(login_password_split) < 2:
-        password = None
-    else:
-        password = login_password_split[1]
-    if not host:
-        fail("Got a blank host from: {}".format(url))
-    if not login:
-        fail("Got a blank login from: {}".format(url))
-
-    # Do not fail for blank password since that is sometimes a thing
-    return {
-        "machine": host,
-        "login": login,
-        "password": password,
-    }
-
-def add_netrc_entries_from_mirror_urls(netrc_entries, mirror_urls):
-    """Add a url's auth credentials into a netrc dict of form return[machine][login] = password."""
-    for url in mirror_urls:
-        entry = extract_netrc_from_auth_url(url)
-        if not entry:
-            continue
-        machine = entry["machine"]
-        login = entry["login"]
-        password = entry["password"]
-        if machine not in netrc_entries:
-            netrc_entries[machine] = {}
-        if login not in netrc_entries[machine]:
-            if netrc_entries[machine]:
-                print("Received multiple logins for machine '{}'! Only using '{}'".format(
-                    machine,
-                    netrc_entries[machine].keys()[0],
-                ))
-                continue
-            netrc_entries[machine][login] = password
-        elif netrc_entries[machine][login] != password:
-            print("Received different passwords for {}@{}! Only using the first".format(login, machine))
-    return netrc_entries
 
 def get_netrc_lines_from_entries(netrc_entries):
     netrc_lines = []
@@ -608,28 +529,6 @@ def _pinned_coursier_fetch_impl(repository_ctx):
                 "\n".join(compat_repositories_bzl) + "\n",
                 executable = False,
             )
-
-def split_url(url):
-    protocol = url[:url.find("://")]
-    url_without_protocol = url[url.find("://") + 3:]
-    url_parts = url_without_protocol.split("/")
-    return protocol, url_parts
-
-def remove_auth_from_url(url):
-    if not url:
-        return None
-
-    """Returns url without `user:pass@` or `user@`."""
-    if "@" not in url:
-        return url
-    protocol, url_parts = split_url(url)
-    host = url_parts[0]
-    if "@" not in host:
-        return url
-    last_index = host.rfind("@", 0, None)
-    userless_host = host[last_index + 1:]
-    new_url = "{}://{}".format(protocol, "/".join([userless_host] + url_parts[1:]))
-    return new_url
 
 def infer_artifact_path_from_primary_and_repos(primary_url, repository_urls):
     """Returns the artifact path inferred by comparing primary_url with urls in repository_urls.
