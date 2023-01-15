@@ -12,10 +12,22 @@ MavenBomFragmentInfo = provider(
 )
 
 def _maven_bom_fragment_impl(ctx):
+    java_info = ctx.attr.artifact[JavaInfo]
+
+    # Recent Bazel versions
+    if "output_jar" in dir(java_info):
+        artifact_jar = java_info["output_jar"]
+    elif len(java_info.outputs.jars):
+        artifact_jar = java_info.outputs.jars[0]
+        if len(java_info.outputs.jars) > 1:
+            print("Maven BOM may not be correct. Expected one jar, got %s for %s" % (len(java_info.outputs.jars), ctx.label))
+    else:
+        artifact_jar = None
+
     return [
         MavenBomFragmentInfo(
             coordinates = ctx.attr.maven_coordinates,
-            artifact = ctx.file.artifact,
+            artifact = artifact_jar,
             srcs = ctx.file.src_artifact,
             javadocs = ctx.file.javadoc_artifact,
             pom = ctx.file.pom,
@@ -32,7 +44,6 @@ maven_bom_fragment = rule(
         ),
         "artifact": attr.label(
             doc = """The `maven_project_jar` that forms the primary artifact of the maven coordinates""",
-            allow_single_file = True,
             mandatory = True,
             providers = [
                 [JavaInfo],
