@@ -4,6 +4,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.MavenRepositoryPath;
+import com.github.bazelbuild.rules_jvm_external.resolver.DependencyInfo;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -11,12 +12,16 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -25,6 +30,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Reads the output of the coursier resolve and generate a v2 lock file */
 public class LockFileConverter {
@@ -35,6 +41,8 @@ public class LockFileConverter {
   public static void main(String[] args) {
     Path unsortedJson = null;
     Path output = null;
+    String outputType = "v2";
+
     // Insertion order matters
     Set<String> repositories = new LinkedHashSet<>();
 
@@ -48,6 +56,11 @@ public class LockFileConverter {
         case "--output":
           i++;
           output = Paths.get(args[i]);
+          break;
+
+        case "--output-type":
+          i++;
+          outputType = args[i];
           break;
 
         case "--repo":
@@ -71,10 +84,21 @@ public class LockFileConverter {
       System.exit(1);
     }
 
-    Map<String, Object> lockContents =
-        new LockFileConverter(repositories, unsortedJson).generateV2LockFile();
+    LockFileConverter converter = new LockFileConverter(repositories, unsortedJson);
+    Set<DependencyInfo> infos = converter.getDependencies();
 
-    String converted = new GsonBuilder().setPrettyPrinting().create().toJson(lockContents);
+    Object rendered = null;
+    switch (outputType) {
+      case "nebula":
+        rendered = new NebulaFormat(repositories).render(infos);
+        break;
+
+      default:
+        rendered = new V2Format(repositories).render(infos);
+        break;
+    }
+
+    String converted = new GsonBuilder().setPrettyPrinting().create().toJson(rendered);
 
     if (output == null) {
       System.out.println(converted);
@@ -92,12 +116,8 @@ public class LockFileConverter {
     this.unsortedJson = Objects.requireNonNull(unsortedJson);
   }
 
-  public Map<String, Object> generateV2LockFile() {
-    boolean isUsingM2Local =
-        repositories.stream().map(String::toLowerCase).anyMatch(repo -> repo.equals("m2local/"));
-
+  public Set<DependencyInfo> getDependencies() {
     Map<String, Object> depTree = readDepTree();
-
     Map<Coordinates, Coordinates> mappings = deriveCoordinateMappings(depTree);
 
     Set<String> artifacts = new TreeSet<>();
@@ -113,7 +133,7 @@ public class LockFileConverter {
 
     @SuppressWarnings("unchecked")
     Collection<Map<String, Object>> coursierDeps =
-        (Collection<Map<String, Object>>) depTree.get("dependencies");
+            (Collection<Map<String, Object>>) depTree.get("dependencies");
     for (Map<String, Object> coursierDep : coursierDeps) {
       @SuppressWarnings("unchecked")
       String coord = (String) coursierDep.get("coord");
@@ -144,8 +164,8 @@ public class LockFileConverter {
         classifier = "jar";
       }
       shasums
-          .computeIfAbsent(altKey, k -> new TreeMap<>())
-          .put(classifier, (String) coursierDep.get("sha256"));
+              .computeIfAbsent(altKey, k -> new TreeMap<>())
+              .put(classifier, (String) coursierDep.get("sha256"));
 
       // To keep the lock file small, for javadocs and sources we stop here. We have enough
       // information already
@@ -154,7 +174,7 @@ public class LockFileConverter {
 
         @SuppressWarnings("unchecked")
         Collection<String> mirrorUrls =
-            (Collection<String>) coursierDep.getOrDefault("mirror_urls", new TreeSet<>());
+                (Collection<String>) coursierDep.getOrDefault("mirror_urls", new TreeSet<>());
         for (String mirrorUrl : mirrorUrls) {
           for (String repo : repositories) {
             if (mirrorUrl.startsWith(repo)) {
@@ -165,13 +185,13 @@ public class LockFileConverter {
 
         @SuppressWarnings("unchecked")
         Collection<String> depCoords =
-            (Collection<String>) coursierDep.getOrDefault("directDependencies", new TreeSet<>());
+                (Collection<String>) coursierDep.getOrDefault("directDependencies", new TreeSet<>());
         Set<String> directDeps =
-            depCoords.stream()
-                .map(Coordinates::new)
-                .map(c -> mappings.getOrDefault(c, c))
-                .map(Coordinates::asKey)
-                .collect(Collectors.toCollection(TreeSet::new));
+                depCoords.stream()
+                        .map(Coordinates::new)
+                        .map(c -> mappings.getOrDefault(c, c))
+                        .map(Coordinates::asKey)
+                        .collect(Collectors.toCollection(TreeSet::new));
 
         if (!directDeps.isEmpty()) {
           deps.computeIfAbsent(key, k -> new TreeSet<>()).addAll(directDeps);
@@ -179,36 +199,40 @@ public class LockFileConverter {
 
         @SuppressWarnings("unchecked")
         Collection<String> depPackages =
-            (Collection<String>) coursierDep.getOrDefault("packages", new TreeSet<>());
+                (Collection<String>) coursierDep.getOrDefault("packages", new TreeSet<>());
         if (!depPackages.isEmpty()) {
           packages.computeIfAbsent(key, k -> new TreeSet<>()).addAll(depPackages);
         }
       }
     }
 
-    // Insertion order matters
-    Map<String, Object> v2Lock = new LinkedHashMap<>();
-    // The bit people care about
-    v2Lock.put("artifacts", artifacts);
-    // The other bits
-    v2Lock.put("dependencies", deps);
-    if (!skippedDeps.isEmpty()) {
-      v2Lock.put("skipped", skippedDeps);
-    }
-    v2Lock.put("packages", packages);
-    if (isUsingM2Local) {
-      v2Lock.put("m2local", isUsingM2Local);
-    }
-    v2Lock.put("repositories", repos);
-    // The bits that only a machine really cares about
-    v2Lock.put("shasums", shasums);
-    // And we need a version in there
-    v2Lock.put("version", "2");
+    Set<DependencyInfo> toReturn = new TreeSet<>(Comparator.comparing(DependencyInfo::getCoordinates));
+    artifacts.forEach(artifact -> {
+      Coordinates coords = new Coordinates(artifact);
+      String key = coords.asKey();
+      String altKey = coords.setClassifier("jar").asKey();
 
-    // Metadata we will discard eventually
-    v2Lock.put("files", fileMappings);
+      Set<URI> repoUris = repos.entrySet().stream()
+              .filter(e -> e.getValue().contains(key))
+              .map(Map.Entry::getKey)
+              .map(URI::create)
+              .collect(Collectors.toCollection(TreeSet::new));
+      Map<String, String> shas = shasums.get(altKey);
+      String mainShaKey = coords.getClassifier();
+      if (mainShaKey == null || mainShaKey.isEmpty()) {
+        mainShaKey = "jar";
+      }
 
-    return v2Lock;
+      toReturn.add(new DependencyInfo(
+              coords,
+              repoUris,
+              shas.get(mainShaKey),
+              deps.getOrDefault(key, new HashSet<>()).stream().map(Coordinates::new).collect(Collectors.toCollection(TreeSet::new)),
+              shas.get("sources"),
+              shas.get("javadoc"),
+              packages.getOrDefault(key, new HashSet<>())));
+    });
+    return toReturn;
   }
 
   private Map<String, Object> readDepTree() {
