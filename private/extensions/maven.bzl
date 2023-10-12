@@ -292,6 +292,15 @@ def _maven_impl(mctx):
         artifacts_json = [_json.write_artifact_spec(a) for a in artifacts]
         excluded_artifacts = parse.parse_exclusion_spec_list(repo["excluded_artifacts"])
         excluded_artifacts_json = [_json.write_exclusion_spec(a) for a in excluded_artifacts]
+
+        if len(repo.get("repositories", [])) == 0:
+            existing_repos = []
+            for repository in parse.parse_repository_spec_list(DEFAULT_REPOSITORIES):
+                repo_string = _json.write_repository_spec(repository)
+                if repo_string not in existing_repos:
+                    existing_repos.append(repo_string)
+            repo["repositories"] = existing_repos
+
         coursier_fetch(
             # Name this repository "unpinned_{name}" if the user specified a
             # maven_install.json file. The actual @{name} repository will be
