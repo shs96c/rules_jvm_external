@@ -56,6 +56,41 @@ use_repo(npm, "npm")
 
 dev_maven = use_extension(":extensions.bzl", "maven", dev_dependency = True)
 
+dev_maven.install(
+    name = "jvm_import_test",
+    artifacts = [
+        "com.google.code.findbugs:jsr305:3.0.2",
+    ],
+)
+
+dev_maven.install(
+    name = "manifest_stamp_testing",
+    artifacts = [
+        "com.google.guava:guava:27.0-jre",
+        "javax.inject:javax.inject:1",
+        "org.apache.beam:beam-sdks-java-core:2.15.0",
+        "org.bouncycastle:bcprov-jdk15on:1.64",
+    ],
+    lock_file = "//tests/custom_maven_install:manifest_stamp_testing_install.json",
+)
+
+dev_maven.install(
+    name = "maven_install_in_custom_location",
+    artifacts = ["com.google.guava:guava:27.0-jre"],
+    lock_file = "@rules_jvm_external//tests/custom_maven_install:maven_install.json",
+)
+
+dev_maven.install(
+    name = "policy_pinned_testing",
+    artifacts = [
+        # https://github.com/bazelbuild/rules_jvm_external/issues/107
+        "com.google.cloud:google-cloud-storage:1.66.0",
+        "com.google.guava:guava:25.0-android",
+    ],
+    lock_file = "//tests/custom_maven_install:policy_pinned_testing_install.json",
+    version_conflict_policy = "pinned",
+)
+
 # These artifacts helped discover limitations by the Maven resolver. Each
 # artifact listed here *must have* an accompanying issue. We build_test these
 # targets to ensure that they remain supported by the rule.
@@ -156,8 +191,87 @@ dev_maven.artifact(
     group = "com.google.apis",
     version = "v1-rev235-1.25.0",
 )
+
+dev_maven.install(
+    name = "starlark_aar_import_test",
+    # Not actually necessary since this is the default value, but useful for
+    # testing.
+    aar_import_bzl_label = "@build_bazel_rules_android//android:rules.bzl",
+    artifacts = [
+        "com.android.support:appcompat-v7:28.0.0",
+    ],
+    fetch_sources = False,
+    use_starlark_android_rules = True,
+)
+
+dev_maven.install(
+    name = "starlark_aar_import_with_sources_test",
+    # Not actually necessary since this is the default value, but useful for
+    # testing.
+    aar_import_bzl_label = "@build_bazel_rules_android//android:rules.bzl",
+    artifacts = [
+        "androidx.work:work-runtime:2.6.0",
+    ],
+    fetch_sources = True,
+    use_starlark_android_rules = True,
+)
+
+dev_maven.install(
+    name = "strict_visibility_testing",
+    artifacts = [
+        # https://github.com/bazelbuild/rules_jvm_external/issues/94
+        "org.apache.tomcat:tomcat-catalina:9.0.24",
+    ],
+    strict_visibility = True,
+)
+
+# https://github.com/bazelbuild/rules_jvm_external/issues/255
+dev_maven.artifact(
+    name = "strict_visibility_testing",
+    artifact = "jetty-http",
+    classifier = "tests",
+    group = "org.eclipse.jetty",
+    version = "9.4.20.v20190813",
+)
+
+dev_maven.install(
+    name = "strict_visibility_with_compat_testing",
+    artifacts = [
+        # Must not be in any other maven_install where generate_compat_repositories = True
+        "com.google.http-client:google-http-client-gson:1.42.3",
+    ],
+    generate_compat_repositories = True,
+    strict_visibility = True,
+)
+
+# Where there are file locks, the pinned and unpinned repos are listed
+# next to each other. Where compat repositories are created, they are
+# listed next to the repo that created them. The list is otherwise kept
+# in alphabetical order.
 use_repo(
     dev_maven,
+    "manifest_stamp_testing",
+    "maven_install_in_custom_location",
+    "jvm_import_test",
+    "unpinned_manifest_stamp_testing",
+    "policy_pinned_testing",
+    "unpinned_policy_pinned_testing",
+
+    # Regression testing and libraries exposed as compat repos
     "regression_testing",
     "unpinned_regression_testing",
+    "com_google_guava_guava_27_0_jre",
+    "nz_ac_waikato_cms_weka_weka_stable",
+    "org_apache_flink_flink_test_utils_2_12",
+    "org_eclipse_jetty_jetty_http_tests",
+    "org_pantsbuild_jarjar",
+
+    # Back to the testing repos
+    "starlark_aar_import_test",
+    "com_android_support_appcompat_v7_aar_28_0_0",
+    "starlark_aar_import_with_sources_test",
+    "strict_visibility_testing",
+    "strict_visibility_with_compat_testing",
+    "com_google_http_client_google_http_client",
+    "com_google_http_client_google_http_client_gson",
 )
