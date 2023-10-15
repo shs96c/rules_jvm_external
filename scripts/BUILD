@@ -17,7 +17,7 @@ genrule(
 sh_binary(
     name = "mirror_coursier",
     srcs = [":mirror_coursier.sh"],
-    data = ["@" + COURSIER_CLI_HTTP_FILE_NAME + "//file"],
+    data = ["@coursier_cli//file"],
     visibility = ["//:__pkg__"],
 )
 

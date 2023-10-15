@@ -11,7 +11,7 @@ load(
 )
 
 http_file(
-    name = COURSIER_CLI_HTTP_FILE_NAME,
+    name = "coursier_cli",
     sha256 = COURSIER_CLI_SHA256,
     urls = [COURSIER_CLI_GITHUB_ASSET_URL],
 )
