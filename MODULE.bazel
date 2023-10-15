@@ -4,12 +4,24 @@ module(
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
+bazel_dep(name = "rules_android", version = "0.1.1")
 bazel_dep(name = "rules_kotlin", version = "1.9.0")
 archive_override(
     module_name = "rules_kotlin",
     strip_prefix = "rules_kotlin-8cb605b90a7ecb25e99237e6a4bd6bae7a3673d5",
     urls = ["https://github.com/bazelbuild/rules_kotlin/archive/8cb605b90a7ecb25e99237e6a4bd6bae7a3673d5.zip"],
 )
+
+#rules_kotlin_extensions = use_extension("@rules_kotlin//src/main/starlark/core/repositories:bzlmod_setup.bzl", "rules_kotlin_extensions")
+#use_repo(
+#    rules_kotlin_extensions,
+#    #    "build_bazel_rules_android",
+#    #    "buildkite_config",
+#    #    "com_github_google_ksp",
+#    "com_github_jetbrains_kotlin",
+#    #    "com_github_pinterest_ktlint",
+#    #    "kt_java_stub_template",
+#)
 
 maven = use_extension(":extensions.bzl", "maven")
 maven.install(
@@ -25,7 +37,7 @@ maven.install(
         "org.apache.maven:maven-artifact:3.9.4",
         "software.amazon.awssdk:s3:2.20.128",
     ],
-    lock_file = "@rules_jvm_external//:rules_jvm_external_deps_install.json",
+    lock_file = "//:rules_jvm_external_deps_install.json",
 )
 use_repo(
     maven,
@@ -35,6 +47,7 @@ use_repo(
 ############# Dev dependencies below here
 
 bazel_dep(name = "aspect_rules_js", version = "1.32.6", dev_dependency = True)
+bazel_dep(name = "protobuf", version = "21.7", dev_dependency = True)
 bazel_dep(name = "stardoc", version = "0.5.6", dev_dependency = True, repo_name = "io_bazel_stardoc")
 
 npm = use_extension(
@@ -57,6 +70,14 @@ use_repo(npm, "npm")
 dev_maven = use_extension(":extensions.bzl", "maven", dev_dependency = True)
 
 dev_maven.install(
+    name = "java_export_exclusion_testing",
+    artifacts = [
+        "com.google.protobuf:protobuf-java:3.23.1",
+    ],
+    lock_file = "//tests/custom_maven_install:java_export_exclusion_testing_install.json",
+)
+
+dev_maven.install(
     name = "jvm_import_test",
     artifacts = [
         "com.google.code.findbugs:jsr305:3.0.2",
@@ -77,7 +98,7 @@ dev_maven.install(
 dev_maven.install(
     name = "maven_install_in_custom_location",
     artifacts = ["com.google.guava:guava:27.0-jre"],
-    lock_file = "@rules_jvm_external//tests/custom_maven_install:maven_install.json",
+    lock_file = "//tests/custom_maven_install:maven_install.json",
 )
 
 dev_maven.install(
@@ -250,9 +271,11 @@ dev_maven.install(
 # in alphabetical order.
 use_repo(
     dev_maven,
+    "java_export_exclusion_testing",
+    "unpinned_java_export_exclusion_testing",
+    "jvm_import_test",
     "manifest_stamp_testing",
     "maven_install_in_custom_location",
-    "jvm_import_test",
     "unpinned_manifest_stamp_testing",
     "policy_pinned_testing",
     "unpinned_policy_pinned_testing",
