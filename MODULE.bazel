@@ -12,17 +12,6 @@ archive_override(
     urls = ["https://github.com/bazelbuild/rules_kotlin/archive/8cb605b90a7ecb25e99237e6a4bd6bae7a3673d5.zip"],
 )
 
-#rules_kotlin_extensions = use_extension("@rules_kotlin//src/main/starlark/core/repositories:bzlmod_setup.bzl", "rules_kotlin_extensions")
-#use_repo(
-#    rules_kotlin_extensions,
-#    #    "build_bazel_rules_android",
-#    #    "buildkite_config",
-#    #    "com_github_google_ksp",
-#    "com_github_jetbrains_kotlin",
-#    #    "com_github_pinterest_ktlint",
-#    #    "kt_java_stub_template",
-#)
-
 maven = use_extension(":extensions.bzl", "maven")
 maven.install(
     name = "rules_jvm_external_deps",
@@ -39,9 +28,19 @@ maven.install(
     ],
     lock_file = "//:rules_jvm_external_deps_install.json",
 )
+
+maven.install(
+    name = "maven_jar_migrator",
+    artifacts = [
+        "com.google.guava:guava:28.0-jre",
+    ],
+)
+
 use_repo(
     maven,
+    "maven_jar_migrator",
     "rules_jvm_external_deps",
+    "unpinned_rules_jvm_external_deps",
 )
 
 ############# Dev dependencies below here
@@ -286,7 +285,6 @@ use_repo(
     "com_google_guava_guava_27_0_jre",
     "nz_ac_waikato_cms_weka_weka_stable",
     "org_apache_flink_flink_test_utils_2_12",
-    "org_eclipse_jetty_jetty_http_tests",
     "org_pantsbuild_jarjar",
 
     # Back to the testing repos
@@ -295,6 +293,5 @@ use_repo(
     "starlark_aar_import_with_sources_test",
     "strict_visibility_testing",
     "strict_visibility_with_compat_testing",
-    "com_google_http_client_google_http_client",
     "com_google_http_client_google_http_client_gson",
 )
