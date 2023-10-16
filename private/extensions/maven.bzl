@@ -290,7 +290,7 @@ def _maven_impl(mctx):
     for (name, repo) in repos.items():
         artifacts = parse.parse_artifact_spec_list(repo["artifacts"])
         artifacts_json = [_json.write_artifact_spec(a) for a in artifacts]
-        excluded_artifacts = parse.parse_exclusion_spec_list(repo["excluded_artifacts"])
+        excluded_artifacts = parse.parse_exclusion_spec_list(repo.get("excluded_artifacts", []))
         excluded_artifacts_json = [_json.write_exclusion_spec(a) for a in excluded_artifacts]
 
         if len(repo.get("repositories", [])) == 0:

@@ -95,8 +95,8 @@ dev_maven.artifact(
     name = "exclusion_testing",
     artifact = "guava",
     exclusions = [
-        "org.codehaus.mojo:animal-sniffer-annotations",
         "com.google.j2objc:j2objc-annotations",
+        "org.codehaus.mojo:animal-sniffer-annotations",
     ],
     group = "com.google.guava",
     version = "27.0-jre",
@@ -110,11 +110,8 @@ dev_maven.install(
         "com.diffplug.durian:durian-core:1.2.0",  # depends on animal-sniffer-annotations and j2objc-annotations
     ],
     excluded_artifacts = [
-        maven.exclusion(
-            artifact = "animal-sniffer-annotations",
-            group = "org.codehaus.mojo",
-        ),
         "com.google.j2objc:j2objc-annotations",
+        "org.codehaus.mojo:animal-sniffer-annotations",
     ],
 )
 
@@ -330,12 +327,29 @@ dev_maven.install(
     strict_visibility = True,
 )
 
+dev_maven.artifact(
+    name = "testonly_testing",
+    artifact = "guava",
+    group = "com.google.guava",
+    version = "27.0-jre",
+)
+
+dev_maven.artifact(
+    name = "testonly_testing",
+            testonly = True,
+            artifact = "auto-value-annotations",
+            group = "com.google.auto.value",
+            version = "1.6.3",
+        )
+
+
 # Where there are file locks, the pinned and unpinned repos are listed
 # next to each other. Where compat repositories are created, they are
 # listed next to the repo that created them. The list is otherwise kept
 # in alphabetical order.
 use_repo(
     dev_maven,
+    "exclusion_testing",
     "global_exclusion_testing",
     "java_export_exclusion_testing",
     "unpinned_java_export_exclusion_testing",
@@ -364,5 +378,6 @@ use_repo(
     "starlark_aar_import_with_sources_test",
     "strict_visibility_testing",
     "strict_visibility_with_compat_testing",
+    "testonly_testing",
     "com_google_http_client_google_http_client_gson",
 )
