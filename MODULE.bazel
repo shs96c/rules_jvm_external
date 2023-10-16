@@ -336,12 +336,11 @@ dev_maven.artifact(
 
 dev_maven.artifact(
     name = "testonly_testing",
-            testonly = True,
-            artifact = "auto-value-annotations",
-            group = "com.google.auto.value",
-            version = "1.6.3",
-        )
-
+    testonly = True,
+    artifact = "auto-value-annotations",
+    group = "com.google.auto.value",
+    version = "1.6.3",
+)
 
 # Where there are file locks, the pinned and unpinned repos are listed
 # next to each other. Where compat repositories are created, they are
@@ -370,6 +369,7 @@ use_repo(
     "com_google_guava_guava_27_0_jre",
     "nz_ac_waikato_cms_weka_weka_stable",
     "org_apache_flink_flink_test_utils_2_12",
+    "org_eclipse_jetty_jetty_http_tests",
     "org_pantsbuild_jarjar",
 
     # Back to the testing repos
@@ -378,6 +378,7 @@ use_repo(
     "starlark_aar_import_with_sources_test",
     "strict_visibility_testing",
     "strict_visibility_with_compat_testing",
+    "com_google_http_client_google_http_client",
     "testonly_testing",
     "com_google_http_client_google_http_client_gson",
 )
