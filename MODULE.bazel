@@ -345,27 +345,43 @@ dev_maven.artifact(
 # Where there are file locks, the pinned and unpinned repos are listed
 # next to each other. Where compat repositories are created, they are
 # listed next to the repo that created them. The list is otherwise kept
-# in alphabetical order.
+# in alphabetical order. We use comments to space out the entries and to
+# prevent `buildifier` from over-zealously sorting things more than we
+# want it to
 use_repo(
     dev_maven,
     "exclusion_testing",
     "global_exclusion_testing",
+
+    # Pinned repo
     "java_export_exclusion_testing",
     "unpinned_java_export_exclusion_testing",
+
+    # Pinned repo
     "json_artifacts_testing",
     "unpinned_json_artifacts_testing",
+
+    # Unpinned repo
     "jvm_import_test",
     "manifest_stamp_testing",
+    "unpinned_manifest_stamp_testing",
+
+    # Pinned repo
     "maven",
     "unpinned_maven",
+
+    # Pinned repo
     "maven_install_in_custom_location",
-    "unpinned_manifest_stamp_testing",
+    "unpinned_maven_install_in_custom_location",
+
+    # Pinned repo
     "policy_pinned_testing",
     "unpinned_policy_pinned_testing",
 
     # Regression testing and libraries exposed as compat repos
     "regression_testing",
     "unpinned_regression_testing",
+    "com_android_support_appcompat_v7_aar_28_0_0",
     "com_google_guava_guava_27_0_jre",
     "nz_ac_waikato_cms_weka_weka_stable",
     "org_apache_flink_flink_test_utils_2_12",
@@ -374,11 +390,14 @@ use_repo(
 
     # Back to the testing repos
     "starlark_aar_import_test",
-    "com_android_support_appcompat_v7_aar_28_0_0",
     "starlark_aar_import_with_sources_test",
     "strict_visibility_testing",
+
+    # Repo with compat repos
     "strict_visibility_with_compat_testing",
+    "com_google_http_client_google_http_client_gson",
+
+    # Final entries
     "com_google_http_client_google_http_client",
     "testonly_testing",
-    "com_google_http_client_google_http_client_gson",
 )
