@@ -57,6 +57,11 @@ use_repo(
     "buildifier-macos-arm64",
     "buildifier-macos-x86_64",
     "coursier_cli",
+    "hamcrest_core_for_test",
+    "hamcrest_core_srcs_for_test",
+    "google_api_services_compute_javadoc_for_test",
+    "gson_for_test",
+    "junit_platform_commons_for_test",
 )
 
 npm = use_extension(
@@ -86,12 +91,55 @@ dev_maven.install(
     lock_file = "@rules_jvm_external//:maven_install.json",
 )
 
+dev_maven.artifact(
+    name = "exclusion_testing",
+    artifact = "guava",
+    exclusions = [
+        "org.codehaus.mojo:animal-sniffer-annotations",
+        "com.google.j2objc:j2objc-annotations",
+    ],
+    group = "com.google.guava",
+    version = "27.0-jre",
+)
+
+dev_maven.install(
+    name = "global_exclusion_testing",
+    artifacts = [
+        "com.google.guava:guava:27.0-jre",  # depends on animal-sniffer-annotations and j2objc-annotations
+        "com.squareup.okhttp3:okhttp:3.14.1",  # depends on animal-sniffer-annotations
+        "com.diffplug.durian:durian-core:1.2.0",  # depends on animal-sniffer-annotations and j2objc-annotations
+    ],
+    excluded_artifacts = [
+        maven.exclusion(
+            artifact = "animal-sniffer-annotations",
+            group = "org.codehaus.mojo",
+        ),
+        "com.google.j2objc:j2objc-annotations",
+    ],
+)
+
 dev_maven.install(
     name = "java_export_exclusion_testing",
     artifacts = [
         "com.google.protobuf:protobuf-java:3.23.1",
     ],
     lock_file = "//tests/custom_maven_install:java_export_exclusion_testing_install.json",
+)
+
+# https://github.com/bazelbuild/rules_jvm_external/issues/351
+dev_maven.install(
+    name = "json_artifacts_testing",
+    artifacts = [
+        "org.json:json:20190722",
+        "io.quarkus:quarkus-maven-plugin:1.0.1.Final",
+        "io.quarkus:quarkus-bom-descriptor-json:1.0.1.Final",
+    ],
+    fetch_sources = True,
+    lock_file = "//tests/custom_maven_install:json_artifacts_testing_install.json",
+    repositories = [
+        "https://repo.maven.apache.org/maven2/",
+        "https://repo.spring.io/plugins-release/",
+    ],
 )
 
 dev_maven.install(
@@ -288,8 +336,11 @@ dev_maven.install(
 # in alphabetical order.
 use_repo(
     dev_maven,
+    "global_exclusion_testing",
     "java_export_exclusion_testing",
     "unpinned_java_export_exclusion_testing",
+    "json_artifacts_testing",
+    "unpinned_json_artifacts_testing",
     "jvm_import_test",
     "manifest_stamp_testing",
     "maven",
