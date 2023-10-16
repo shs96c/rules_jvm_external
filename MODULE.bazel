@@ -28,14 +28,12 @@ maven.install(
     ],
     lock_file = "//:rules_jvm_external_deps_install.json",
 )
-
 maven.install(
     name = "maven_jar_migrator",
     artifacts = [
         "com.google.guava:guava:28.0-jre",
     ],
 )
-
 use_repo(
     maven,
     "maven_jar_migrator",
@@ -57,10 +55,10 @@ use_repo(
     "buildifier-macos-arm64",
     "buildifier-macos-x86_64",
     "coursier_cli",
-    "hamcrest_core_for_test",
-    "hamcrest_core_srcs_for_test",
     "google_api_services_compute_javadoc_for_test",
     "gson_for_test",
+    "hamcrest_core_for_test",
+    "hamcrest_core_srcs_for_test",
     "junit_platform_commons_for_test",
 )
 
@@ -82,7 +80,6 @@ npm.npm_translate_lock(
 use_repo(npm, "npm")
 
 dev_maven = use_extension(":extensions.bzl", "maven", dev_dependency = True)
-
 dev_maven.install(
     artifacts = [
         "com.google.guava:guava:31.1-jre",
@@ -90,7 +87,6 @@ dev_maven.install(
     ],
     lock_file = "@rules_jvm_external//:maven_install.json",
 )
-
 dev_maven.artifact(
     name = "exclusion_testing",
     artifact = "guava",
@@ -101,7 +97,6 @@ dev_maven.artifact(
     group = "com.google.guava",
     version = "27.0-jre",
 )
-
 dev_maven.install(
     name = "global_exclusion_testing",
     artifacts = [
@@ -114,7 +109,6 @@ dev_maven.install(
         "org.codehaus.mojo:animal-sniffer-annotations",
     ],
 )
-
 dev_maven.install(
     name = "java_export_exclusion_testing",
     artifacts = [
@@ -138,14 +132,12 @@ dev_maven.install(
         "https://repo.spring.io/plugins-release/",
     ],
 )
-
 dev_maven.install(
     name = "jvm_import_test",
     artifacts = [
         "com.google.code.findbugs:jsr305:3.0.2",
     ],
 )
-
 dev_maven.install(
     name = "manifest_stamp_testing",
     artifacts = [
@@ -156,13 +148,11 @@ dev_maven.install(
     ],
     lock_file = "//tests/custom_maven_install:manifest_stamp_testing_install.json",
 )
-
 dev_maven.install(
     name = "maven_install_in_custom_location",
     artifacts = ["com.google.guava:guava:27.0-jre"],
     lock_file = "//tests/custom_maven_install:maven_install.json",
 )
-
 dev_maven.install(
     name = "policy_pinned_testing",
     artifacts = [
@@ -274,7 +264,6 @@ dev_maven.artifact(
     group = "com.google.apis",
     version = "v1-rev235-1.25.0",
 )
-
 dev_maven.install(
     name = "starlark_aar_import_test",
     # Not actually necessary since this is the default value, but useful for
@@ -286,7 +275,6 @@ dev_maven.install(
     fetch_sources = False,
     use_starlark_android_rules = True,
 )
-
 dev_maven.install(
     name = "starlark_aar_import_with_sources_test",
     # Not actually necessary since this is the default value, but useful for
@@ -298,7 +286,6 @@ dev_maven.install(
     fetch_sources = True,
     use_starlark_android_rules = True,
 )
-
 dev_maven.install(
     name = "strict_visibility_testing",
     artifacts = [
@@ -316,7 +303,6 @@ dev_maven.artifact(
     group = "org.eclipse.jetty",
     version = "9.4.20.v20190813",
 )
-
 dev_maven.install(
     name = "strict_visibility_with_compat_testing",
     artifacts = [
@@ -326,14 +312,12 @@ dev_maven.install(
     generate_compat_repositories = True,
     strict_visibility = True,
 )
-
 dev_maven.artifact(
     name = "testonly_testing",
     artifact = "guava",
     group = "com.google.guava",
     version = "27.0-jre",
 )
-
 dev_maven.artifact(
     name = "testonly_testing",
     testonly = True,
@@ -379,14 +363,14 @@ use_repo(
     "unpinned_policy_pinned_testing",
 
     # Regression testing and libraries exposed as compat repos
-    "regression_testing",
-    "unpinned_regression_testing",
     "com_android_support_appcompat_v7_aar_28_0_0",
     "com_google_guava_guava_27_0_jre",
     "nz_ac_waikato_cms_weka_weka_stable",
     "org_apache_flink_flink_test_utils_2_12",
     "org_eclipse_jetty_jetty_http_tests",
     "org_pantsbuild_jarjar",
+    "regression_testing",
+    "unpinned_regression_testing",
 
     # Back to the testing repos
     "starlark_aar_import_test",
@@ -394,8 +378,8 @@ use_repo(
     "strict_visibility_testing",
 
     # Repo with compat repos
-    "strict_visibility_with_compat_testing",
     "com_google_http_client_google_http_client_gson",
+    "strict_visibility_with_compat_testing",
 
     # Final entries
     "com_google_http_client_google_http_client",
