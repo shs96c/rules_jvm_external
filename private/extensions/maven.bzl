@@ -351,6 +351,8 @@ def _maven_impl(mctx):
                 fail("Unable to determine lock file version: %s" % repo.get("lock_file"))
 
             created = download_pinned_deps(artifacts = artifacts, http_files = http_files)
+            if name == "regression_testing":
+                print(name, "\n\t".join([a["coordinates"] for a in artifacts]))
             existing_repos.extend(created)
 
             pinned_coursier_fetch(
