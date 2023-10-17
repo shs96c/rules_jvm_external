@@ -32,6 +32,16 @@ def _non_bzlmod_deps_impl(mctx):
         urls = ["https://github.com/bazelbuild/buildtools/releases/download/5.1.0/buildifier-darwin-amd64"],
     )
 
+    # Grab com.google.ar.sceneform:rendering because we overrode it above
+    http_file(
+        name = "com.google.ar.sceneform_rendering",
+        downloaded_file_path = "rendering-1.10.0.aar",
+        sha256 = "d2f6cd1d54eee0d5557518d1edcf77a3ba37494ae94f9bb862e570ee426a3431",
+        urls = [
+            "https://dl.google.com/android/maven2/com/google/ar/sceneform/rendering/1.10.0/rendering-1.10.0.aar",
+        ],
+    )
+
     http_file(
         name = "hamcrest_core_for_test",
         downloaded_file_path = "hamcrest-core-1.3.jar",

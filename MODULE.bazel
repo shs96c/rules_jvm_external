@@ -54,6 +54,7 @@ use_repo(
     "buildifier-linux-x86_64",
     "buildifier-macos-arm64",
     "buildifier-macos-x86_64",
+    "com.google.ar.sceneform_rendering",
     "coursier_cli",
     "google_api_services_compute_javadoc_for_test",
     "gson_for_test",
