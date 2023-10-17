@@ -145,6 +145,7 @@ def _maven_impl(mctx):
     repos = {}
     overrides = {}
     exclusions = {}
+    http_files = []
 
     # Iterate over all the tags we care about. For each `name` we want to construct
     # a dict with the following keys:
@@ -349,7 +350,7 @@ def _maven_impl(mctx):
             else:
                 fail("Unable to determine lock file version: %s" % repo.get("lock_file"))
 
-            created = download_pinned_deps(artifacts = artifacts, existing_repos = existing_repos)
+            created = download_pinned_deps(artifacts = artifacts, http_files = http_files)
             existing_repos.extend(created)
 
             pinned_coursier_fetch(
