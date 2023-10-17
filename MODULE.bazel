@@ -326,6 +326,14 @@ dev_maven.artifact(
     version = "1.6.3",
 )
 
+# https://github.com/bazelbuild/rules_jvm_external/issues/433
+dev_maven.install(
+    name = "version_interval_testing",
+    artifacts = [
+        "io.grpc:grpc-netty-shaded:1.29.0",
+    ],
+)
+
 # Where there are file locks, the pinned and unpinned repos are listed
 # next to each other. Where compat repositories are created, they are
 # listed next to the repo that created them. The list is otherwise kept
@@ -384,4 +392,5 @@ use_repo(
     # Final entries
     "com_google_http_client_google_http_client",
     "testonly_testing",
+    "version_interval_testing",
 )
