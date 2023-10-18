@@ -1,5 +1,6 @@
 load("//private:compat_repository.bzl", "compat_repository")
 load("//private:coursier_utilities.bzl", "escape")
+load("//private/rules:maven_utils.bzl", "unpack_coordinates")
 load("//private/rules:v1_lock_file.bzl", "v1_lock_file")
 load("//private/rules:v2_lock_file.bzl", "v2_lock_file")
 load("//:specs.bzl", "parse", _json = "json")
@@ -141,11 +142,29 @@ def _check_repo_name(repo_name_2_module_name, repo_name, module_name):
             module_name,
         ))
 
+def _generate_compat_repos(name, existing_compat_repos, artifacts):
+    seen = []
+
+    for artifact in artifacts:
+        versionless = escape(artifact["group"] + "_" + artifact["artifact"])
+        if versionless in existing_compat_repos:
+            continue
+        seen.append(versionless)
+        existing_compat_repos.append(versionless)
+        compat_repository(
+            name = versionless,
+            generating_repository = name,
+            target_name = versionless,
+        )
+
+    return seen
+
 def _maven_impl(mctx):
     repos = {}
     overrides = {}
     exclusions = {}
     http_files = []
+    compat_repos = []
 
     # Iterate over all the tags we care about. For each `name` we want to construct
     # a dict with the following keys:
@@ -328,17 +347,10 @@ def _maven_impl(mctx):
         )
 
         if repo.get("generate_compat_repositories"):
-            seen = []
-            for artifact in artifacts:
-                versionless = escape(artifact["group"] + "_" + artifact["artifact"])
-                if versionless in seen:
-                    continue
-                seen.append(versionless)
-                compat_repository(
-                    name = versionless,
-                    generating_repository = name,
-                    target_name = versionless,
-                )
+            if name == "regression_testing":
+                print(artifacts)
+            seen = _generate_compat_repos(name, compat_repos, artifacts)
+            compat_repos.extend(seen)
 
         if repo.get("lock_file"):
             lock_file = json.decode(mctx.read(mctx.path(repo.get("lock_file"))))
@@ -351,8 +363,6 @@ def _maven_impl(mctx):
                 fail("Unable to determine lock file version: %s" % repo.get("lock_file"))
 
             created = download_pinned_deps(artifacts = artifacts, http_files = http_files)
-            if name == "regression_testing":
-                print(name, "\n\t".join([a["coordinates"] for a in artifacts]))
             existing_repos.extend(created)
 
             pinned_coursier_fetch(
@@ -374,6 +384,12 @@ def _maven_impl(mctx):
                 duplicate_version_warning = repo.get("duplicate_version_warning"),
                 excluded_artifacts = repo.get("excluded_artifacts"),
             )
+
+            if repo.get("generate_compat_repositories"):
+                seen = _generate_compat_repos(name, compat_repos, parse.parse_artifact_spec_list([(a["coordinates"]) for a in artifacts]))
+                if name == "regression_testing":
+                    print("\n\t".join(seen))
+                compat_repos.extend(seen)
 
 maven = module_extension(
     _maven_impl,
