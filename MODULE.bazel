@@ -6,11 +6,6 @@ module(
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_android", version = "0.1.1")
 bazel_dep(name = "rules_kotlin", version = "1.9.0")
-archive_override(
-    module_name = "rules_kotlin",
-    strip_prefix = "rules_kotlin-8cb605b90a7ecb25e99237e6a4bd6bae7a3673d5",
-    urls = ["https://github.com/bazelbuild/rules_kotlin/archive/8cb605b90a7ecb25e99237e6a4bd6bae7a3673d5.zip"],
-)
 
 maven = use_extension(":extensions.bzl", "maven")
 maven.install(
@@ -275,6 +270,10 @@ dev_maven.install(
     ],
     fetch_sources = False,
     use_starlark_android_rules = True,
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://maven.google.com",
+    ],
 )
 dev_maven.install(
     name = "starlark_aar_import_with_sources_test",
