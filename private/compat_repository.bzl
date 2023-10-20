@@ -16,7 +16,6 @@ alias(
 
 def _compat_repository_impl(repository_ctx):
     target_name = repository_ctx.attr.target_name if repository_ctx.attr.target_name else repository_ctx.name
-    print("target name", target_name)
 
     repository_ctx.file(
         "jar/BUILD",
