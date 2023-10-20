@@ -405,9 +405,6 @@ def _maven_impl(mctx):
             if repo.get("generate_compat_repositories"):
                 all_artifacts = parse.parse_artifact_spec_list([(a["coordinates"]) for a in artifacts])
                 seen = _generate_compat_repos(name, compat_repos, parse.parse_artifact_spec_list([(a["coordinates"]) for a in artifacts]))
-                print(all_artifacts)
-                if name == "regression_testing":
-                    print("Seen\n", "\n\t".join(seen))
                 compat_repos.extend(seen)
 
 maven = module_extension(

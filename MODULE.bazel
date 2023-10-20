@@ -286,6 +286,10 @@ dev_maven.install(
     ],
     fetch_sources = True,
     use_starlark_android_rules = True,
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://maven.google.com",
+    ],
 )
 dev_maven.install(
     name = "strict_visibility_testing",
