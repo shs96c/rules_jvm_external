@@ -1,8 +1,8 @@
 module(
     name = "rules_jvm_external",
+    version = "6.1",
     bazel_compatibility = [">=7.0.0"],
     compatibility_level = 2,
-    version = "6.1",
 )
 
 bazel_dep(
@@ -27,13 +27,12 @@ bazel_dep(
 )
 bazel_dep(
     name = "stardoc",
-    repo_name = "io_bazel_stardoc",
     version = "0.5.6",
+    repo_name = "io_bazel_stardoc",
 )
 
 # Remove this once rules_android has rolled out official Bzlmod support
 remote_android_extensions = use_extension("@bazel_tools//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
-
 use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
 
 maven = use_extension(":extensions.bzl", "maven")
@@ -47,6 +46,7 @@ _MAVEN_RESOLVER_VERSION = "1.9.18"
 maven.install(
     name = "rules_jvm_external_deps",
     artifacts = [
+        "com.esotericsoftware.kryo:kryo:2.24.0",
         "com.google.auth:google-auth-library-credentials:1.23.0",
         "com.google.auth:google-auth-library-oauth2-http:1.23.0",
         "com.google.cloud:google-cloud-core:2.36.1",
@@ -54,6 +54,11 @@ maven.install(
         "com.google.code.gson:gson:2.10.1",
         "com.google.googlejavaformat:google-java-format:1.22.0",
         "com.google.guava:guava:33.1.0-jre",
+        "commons-io:commons-io:2.11.0",
+        "commons-lang:commons-lang:2.6",
+        "org.apache.ant:ant:1.10.12",
+        "org.apache.commons:commons-compress:1.22",
+        "org.apache.ivy:ivy:2.5.1",
         "org.apache.maven:maven-artifact:%s" % _MAVEN_VERSION,
         "org.apache.maven:maven-core:%s" % _MAVEN_VERSION,
         "org.apache.maven:maven-model:%s" % _MAVEN_VERSION,
@@ -68,9 +73,15 @@ maven.install(
         "org.apache.maven.resolver:maven-resolver-transport-file:%s" % _MAVEN_RESOLVER_VERSION,
         "org.apache.maven.resolver:maven-resolver-transport-http:%s" % _MAVEN_RESOLVER_VERSION,
         "org.apache.maven.resolver:maven-resolver-util:%s" % _MAVEN_RESOLVER_VERSION,
+        "org.codehaus.groovy:groovy-ant:3.0.13",
+        "org.codehaus.groovy:groovy-json:3.0.13",
         "org.codehaus.plexus:plexus-cipher:2.1.0",
         "org.codehaus.plexus:plexus-sec-dispatcher:2.0",
         "org.fusesource.jansi:jansi:2.4.1",
+        "org.jetbrains.kotlin:kotlin-stdlib:1.7.10",
+        "org.jetbrains.kotlin:kotlin-daemon-embeddable:1.7.22",
+        "org.jetbrains.kotlin:kotlin-stdlib-common:1.7.22",
+        "org.ow2.asm:asm:9.4",
         "org.slf4j:jul-to-slf4j:2.0.12",
         "org.slf4j:log4j-over-slf4j:2.0.12",
         "org.slf4j:slf4j-simple:2.0.12",
@@ -80,11 +91,19 @@ maven.install(
     fetch_sources = True,
     lock_file = "//:rules_jvm_external_deps_install.json",
 )
-
 use_repo(
     maven,
     "rules_jvm_external_deps",
     "unpinned_rules_jvm_external_deps",
+)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "gradle",
+    build_file = "//:gradle.BUILD.bazel",
+    sha256 = "7ba68c54029790ab444b39d7e293d3236b2632631fb5f2e012bb28b4ff669e4b",
+    url = "https://services.gradle.org/distributions/gradle-7.6-bin.zip",
 )
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
@@ -134,15 +153,14 @@ http_file(
 
 bazel_dep(
     name = "protobuf",
-    dev_dependency = True,
     version = "21.7",
+    dev_dependency = True,
 )
 bazel_dep(
     name = "bzlmod_lock_files",
-    dev_dependency = True,
     version = "0.0.0",
+    dev_dependency = True,
 )
-
 local_path_override(
     module_name = "bzlmod_lock_files",
     path = "tests/integration/bzlmod_lock_files",
@@ -153,7 +171,6 @@ dev_maven = use_extension(
     "maven",
     dev_dependency = True,
 )
-
 dev_maven.install(
     artifacts = [
         "com.google.guava:guava:31.1-jre",
@@ -162,7 +179,6 @@ dev_maven.install(
     lock_file = "@rules_jvm_external//:maven_install.json",
     resolver = "coursier",
 )
-
 dev_maven.install(
     name = "duplicate_version_warning",
     artifacts = [
@@ -177,7 +193,6 @@ dev_maven.install(
         "https://maven.google.com",
     ],
 )
-
 dev_maven.artifact(
     name = "duplicate_version_warning",
     artifact = "jffi",
@@ -185,7 +200,6 @@ dev_maven.artifact(
     group = "com.github.jnr",
     version = "1.3.3",
 )
-
 dev_maven.artifact(
     name = "duplicate_version_warning",
     artifact = "jffi",
@@ -193,7 +207,6 @@ dev_maven.artifact(
     group = "com.github.jnr",
     version = "1.3.2",
 )
-
 dev_maven.install(
     name = "duplicate_version_warning_same_version",
     artifacts = [
@@ -205,7 +218,6 @@ dev_maven.install(
         "https://maven.google.com",
     ],
 )
-
 dev_maven.artifact(
     name = "duplicate_version_warning_same_version",
     artifact = "jffi",
@@ -213,7 +225,6 @@ dev_maven.artifact(
     group = "com.github.jnr",
     version = "1.3.3",
 )
-
 dev_maven.artifact(
     name = "duplicate_version_warning_same_version",
     artifact = "jffi",
@@ -221,7 +232,6 @@ dev_maven.artifact(
     group = "com.github.jnr",
     version = "1.3.3",
 )
-
 dev_maven.artifact(
     name = "exclusion_testing",
     artifact = "guava",
@@ -232,7 +242,6 @@ dev_maven.artifact(
     group = "com.google.guava",
     version = "27.0-jre",
 )
-
 dev_maven.install(
     name = "forcing_versions",
     artifacts = [
@@ -250,7 +259,6 @@ dev_maven.artifact(
     group = "com.google.guava",
     version = "23.3-jre",
 )
-
 dev_maven.install(
     name = "global_exclusion_testing",
     artifacts = [
@@ -263,7 +271,6 @@ dev_maven.install(
         "org.codehaus.mojo:animal-sniffer-annotations",
     ],
 )
-
 dev_maven.install(
     name = "java_export_exclusion_testing",
     artifacts = [
@@ -287,7 +294,6 @@ dev_maven.install(
         "https://repo.spring.io/plugins-release/",
     ],
 )
-
 dev_maven.install(
     name = "service_indexing_testing",
     artifacts = [
@@ -297,14 +303,12 @@ dev_maven.install(
     ],
     lock_file = "//tests/custom_maven_install:service_indexing_testing.json",
 )
-
 dev_maven.install(
     name = "jvm_import_test",
     artifacts = [
         "com.google.code.findbugs:jsr305:3.0.2",
     ],
 )
-
 dev_maven.install(
     name = "m2local_testing",
     artifacts = [
@@ -318,7 +322,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "m2local_testing_ignore_empty_files",
     artifacts = [
@@ -333,7 +336,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "m2local_testing_ignore_empty_files_repin",
     artifacts = [
@@ -349,7 +351,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "m2local_testing_repin",
     artifacts = [
@@ -363,7 +364,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "m2local_testing_without_checksum",
     artifacts = [
@@ -378,7 +378,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "artifact_with_plus",
     artifacts = [
@@ -388,7 +387,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "artifact_with_plus_repin",
     artifacts = [
@@ -399,7 +397,6 @@ dev_maven.install(
         "https://repo1.maven.org/maven2",
     ],
 )
-
 dev_maven.install(
     name = "manifest_stamp_testing",
     artifacts = [
@@ -410,20 +407,17 @@ dev_maven.install(
     ],
     lock_file = "//tests/custom_maven_install:manifest_stamp_testing_install.json",
 )
-
 dev_maven.install(
     name = "maven_install_in_custom_location",
     artifacts = ["com.google.guava:guava:27.0-jre"],
     lock_file = "//tests/custom_maven_install:maven_install.json",
 )
-
 dev_maven.install(
     # This name matches the one in `tests/integration/bzlmod_lock_files`
     name = "multiple_lock_files",
     artifacts = ["org.zeromq:jeromq:0.5.4"],
     lock_file = "//tests/custom_maven_install:multiple_lock_files_install.json",
 )
-
 dev_maven.install(
     name = "maven_resolved_with_boms",
     # Before adding a dependency here, add a reduced test case to `ResolverTestBase`
@@ -450,7 +444,6 @@ dev_maven.install(
     ],
     resolver = "maven",
 )
-
 dev_maven.artifact(
     name = "maven_resolved_with_boms",
     testonly = True,
@@ -461,7 +454,6 @@ dev_maven.artifact(
     group = "com.google.auto.value",
     version = "1.6.3",
 )
-
 dev_maven.artifact(
     name = "maven_resolved_with_boms",
     artifact = "json-lib",
@@ -469,7 +461,6 @@ dev_maven.artifact(
     group = "net.sf.json-lib",
     version = "2.4",
 )
-
 dev_maven.install(
     name = "override_target_in_deps",
     artifacts = [
@@ -478,13 +469,11 @@ dev_maven.install(
     ],
     lock_file = "@rules_jvm_external//tests/custom_maven_install:override_target_in_deps_install.json",
 )
-
 dev_maven.override(
     name = "override_target_in_deps",
     coordinates = "io.opentelemetry:opentelemetry-api",
     target = "@//tests/integration/override_targets:additional_deps",
 )
-
 dev_maven.install(
     name = "policy_pinned_testing",
     artifacts = [
@@ -565,7 +554,6 @@ dev_maven.install(
         "https://packages.confluent.io/maven/",
     ],
 )
-
 dev_maven.override(
     name = "regression_testing",
     coordinates = "com.google.ar.sceneform:rendering",
@@ -601,7 +589,6 @@ dev_maven.artifact(
     group = "com.google.apis",
     version = "v1-rev235-1.25.0",
 )
-
 dev_maven.install(
     name = "starlark_aar_import_test",
     # Not actually necessary since this is the default value, but useful for
@@ -617,7 +604,6 @@ dev_maven.install(
     ],
     use_starlark_android_rules = True,
 )
-
 dev_maven.install(
     name = "starlark_aar_import_with_sources_test",
     # Not actually necessary since this is the default value, but useful for
@@ -633,7 +619,6 @@ dev_maven.install(
     ],
     use_starlark_android_rules = True,
 )
-
 dev_maven.install(
     name = "strict_visibility_testing",
     artifacts = [
@@ -651,7 +636,6 @@ dev_maven.artifact(
     group = "org.eclipse.jetty",
     version = "9.4.20.v20190813",
 )
-
 dev_maven.install(
     name = "strict_visibility_with_compat_testing",
     artifacts = [
@@ -661,14 +645,12 @@ dev_maven.install(
     generate_compat_repositories = True,
     strict_visibility = True,
 )
-
 dev_maven.artifact(
     name = "testonly_testing",
     artifact = "guava",
     group = "com.google.guava",
     version = "27.0-jre",
 )
-
 dev_maven.artifact(
     name = "testonly_testing",
     testonly = True,
@@ -684,7 +666,6 @@ dev_maven.install(
         "io.grpc:grpc-netty-shaded:1.29.0",
     ],
 )
-
 dev_maven.install(
     name = "v1_lock_file_format",
     artifacts = [
@@ -733,12 +714,12 @@ use_repo(
     "unpinned_manifest_stamp_testing",
 
     # Pinned repo
-    "m2local_testing_repin",
-    "m2local_testing_without_checksum",
-    "unpinned_m2local_testing_repin",
     "artifact_with_plus",
     "artifact_with_plus_repin",
+    "m2local_testing_repin",
+    "m2local_testing_without_checksum",
     "unpinned_artifact_with_plus_repin",
+    "unpinned_m2local_testing_repin",
 
     # Pinned repo
     "maven",

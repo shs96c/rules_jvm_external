@@ -5,6 +5,7 @@ import static com.github.bazelbuild.rules_jvm_external.resolver.gradle.ProjectFa
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.resolver.Artifact;
 import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionRequest;
+import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionResult;
 import com.github.bazelbuild.rules_jvm_external.resolver.Resolver;
 import com.github.bazelbuild.rules_jvm_external.resolver.events.EventListener;
 import com.github.bazelbuild.rules_jvm_external.resolver.events.PhaseEvent;
@@ -12,7 +13,7 @@ import com.github.bazelbuild.rules_jvm_external.resolver.netrc.Netrc;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.graph.Graph;
+
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.LinkedList;
@@ -120,8 +121,10 @@ public class GradleResolver implements Resolver {
     return (ResolutionAwareRepository) maven;
   }
 
+
+
   @Override
-  public Graph<Coordinates> resolve(ResolutionRequest request) {
+  public ResolutionResult resolve(ResolutionRequest request) {
     listener.onEvent(new PhaseEvent("Initializing"));
 
     Path homeDir = request.getUserHome();
@@ -264,7 +267,9 @@ public class GradleResolver implements Resolver {
     //              System.err.println(dep + " -> " + requiredVersion);
     //            });
 
-    return coordinatesVisitor.getDependencyGraph();
+    return new ResolutionResult(
+            coordinatesVisitor.getDependencyGraph(),
+            Set.of());
   }
 
   private String asGradleCoordinates(Coordinates coords) {

@@ -56,3 +56,23 @@ java_test(
         ),
     ],
 )
+
+java_test(
+    name = "GradleResolverTest",
+    size = "medium",
+    srcs = ["GradleResolverTest.java"],
+    test_class = "com.github.bazelbuild.rules_jvm_external.resolver.GradleResolverTest",
+    deps = [
+        ":resolver",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/events",
+        # TODO: This really shouldn't be needed, but apparently `@gradle` is missing deps
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/maven",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/netrc",
+        artifact(
+            "junit:junit",
+            repository_name = "regression_testing",
+        ),
+    ],
+)
