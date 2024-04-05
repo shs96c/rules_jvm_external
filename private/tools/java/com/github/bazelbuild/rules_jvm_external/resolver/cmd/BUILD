@@ -12,6 +12,7 @@ java_library(
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/jar:IndexJar-lib",
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver",
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/events",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle",
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/maven",
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/netrc",
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/remote",
@@ -29,6 +30,11 @@ java_library(
 
 java_binary(
     name = "Resolver",
+    data = [
+        "@gradle//:README",
+        "@gradle//:distribution",
+    ],
+    env = {"GRADLE_ROOT": "$(rlocationpath @gradle//:README)"},
     main_class = "com.github.bazelbuild.rules_jvm_external.resolver.cmd.Main",
     visibility = [
         "//visibility:public",
