@@ -607,6 +607,9 @@ dev_maven.install(
     artifacts = [
         # Depends on org.apache.yetus:audience-annotations:0.11.0 which has an invalid pom
         "org.apache.parquet:parquet-common:1.11.1",
+        # To match Maven's behavior the resolver should not error when there is an artifact
+        # that is not found, only print a warning
+        "com.example:artifact-that-does-not-exist:1.0",
     ],
     fail_if_repin_required = True,
     generate_compat_repositories = True,
