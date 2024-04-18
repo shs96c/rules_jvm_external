@@ -109,9 +109,6 @@ MODULES = [
     "plugins/gradle-testing-jvm-%s.jar" % GRADLE_VERSION,
     "plugins/gradle-workers-%s.jar" % GRADLE_VERSION,
     "plugins/gradle-version-control-%s.jar" % GRADLE_VERSION,
-
-    # We need to keep this version in the tree
-    "slf4j-api-1.7.30.jar",
 ]
 
 RUNTIME_DEPS = [PREFIX + m for m in MODULES]

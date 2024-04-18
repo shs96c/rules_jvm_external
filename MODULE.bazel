@@ -41,6 +41,8 @@ _MAVEN_VERSION = "3.9.6"
 
 _MAVEN_RESOLVER_VERSION = "1.9.18"
 
+_SLF4J_VERSION = "2.0.12"
+
 # NOTE: Please keep any changes to this maven.install in sync with the
 # definition in repositories.bzl
 maven.install(
@@ -82,10 +84,10 @@ maven.install(
         "org.jetbrains.kotlin:kotlin-daemon-embeddable:1.7.22",
         "org.jetbrains.kotlin:kotlin-stdlib-common:1.7.22",
         "org.ow2.asm:asm:9.4",
-        "org.slf4j:jul-to-slf4j:1.7.36",
-        "org.slf4j:log4j-over-slf4j:1.7.36",
-        "org.slf4j:slf4j-api:1.7.36",
-        "org.slf4j:slf4j-simple:1.7.36",
+        "org.slf4j:jul-to-slf4j:%s" % _SLF4J_VERSION,
+        "org.slf4j:log4j-over-slf4j:%s" % _SLF4J_VERSION,
+        "org.slf4j:slf4j-api:%s" % _SLF4J_VERSION,
+        "org.slf4j:slf4j-jdk14:%s" % _SLF4J_VERSION,
         "software.amazon.awssdk:s3:2.25.23",
     ],
     fail_if_repin_required = True,

@@ -17,5 +17,9 @@ java_library(
             "com.google.guava:guava",
             repository_name = "rules_jvm_external_deps",
         ),
+        artifact(
+            "org.slf4j:slf4j-api",
+            repository_name = "rules_jvm_external_deps",
+        ),
     ],
 )

@@ -14,8 +14,6 @@
 
 package com.github.bazelbuild.rules_jvm_external.resolver.cmd;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.coursier.NebulaFormat;
 import com.github.bazelbuild.rules_jvm_external.jar.IndexJar;
@@ -37,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.graph.Graph;
 import com.google.gson.GsonBuilder;
+
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -59,6 +58,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Main {
 
