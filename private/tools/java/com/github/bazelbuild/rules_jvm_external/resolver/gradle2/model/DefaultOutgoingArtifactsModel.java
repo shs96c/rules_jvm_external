@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.demo.model;
+package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model;
 
 import java.io.File;
 import java.io.Serializable;

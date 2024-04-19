@@ -7,8 +7,8 @@ java_library(
         "init.gradle",
     ],
     deps = [
-        "//private/tools/java/org/gradle/demo/model",
-        "//private/tools/java/org/gradle/demo/plugin",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle2/model",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle2/plugin",
         "@bazel_tools//tools/java/runfiles",
         "@gradle//:gradle-tooling-api",
     ],
@@ -21,7 +21,7 @@ java_binary(
         "@gradle//:gradle-7.6/README",
     ],
     env = {"GRADLE_ROOT": "$(rlocationpath @gradle//:gradle-7.6/README)"},
-    main_class = "org.gradle.demo.tapi.App",
+    main_class = "com.github.bazelbuild.rules_jvm_external.resolver.gradle2.tapi.App",
     runtime_deps = [
         ":tapi",
         artifact(

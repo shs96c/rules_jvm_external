@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.demo.tapi;
+package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.tapi;
 
+import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.OutgoingArtifactsModel;
+import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin.CustomModelInjectionPlugin;
 import com.google.devtools.build.runfiles.Runfiles;
-import org.gradle.demo.model.OutgoingArtifactsModel;
-import org.gradle.demo.plugin.CustomModelInjectionPlugin;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ModelBuilder;
 import org.gradle.tooling.ProjectConnection;
@@ -70,8 +70,12 @@ public class App {
         StringBuilder sb = new StringBuilder();
         File pluginJar = lookupJar(CustomModelInjectionPlugin.class);
         File modelJar = lookupJar(OutgoingArtifactsModel.class);
+        String name = "/" + App.class.getPackageName().replace('.', '/') + "/init.gradle";
+        System.err.println(name);
+
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(App.class.getResourceAsStream("/org/gradle/demo/tapi/init.gradle"))
+                new InputStreamReader(App.class.getResourceAsStream(
+                        name))
         )) {
             reader.lines()
                     .forEach(line -> {

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.demo.plugin;
+package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin;
 
+import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.DefaultOutgoingArtifactsModel;
+import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.OutgoingArtifactsModel;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.demo.model.DefaultOutgoingArtifactsModel;
-import org.gradle.demo.model.OutgoingArtifactsModel;
 import org.gradle.tooling.provider.model.ToolingModelBuilder;
 
 import java.io.File;

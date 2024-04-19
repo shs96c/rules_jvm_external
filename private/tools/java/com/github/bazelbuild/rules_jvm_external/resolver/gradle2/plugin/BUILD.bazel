@@ -5,8 +5,8 @@ load("@rules_jvm_external//private/rules:jvm_import.bzl", "jvm_import")
 
 copy_file(
     name = "plugin-properties",
-    src = "org.gradle.demo.plugin.custom.model.properties",
-    out = "META-INF/gradle-plugins/org.gradle.demo.plugin.custom.model.properties",
+    src = "plugin.properties",
+    out = "META-INF/gradle-plugins/com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.properties",
 )
 
 java_library(
@@ -17,7 +17,7 @@ java_library(
         ":plugin-properties",
     ],
     deps = [
-        "//private/tools/java/org/gradle/demo/model",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle2/model",
         "@gradle",
         artifact(
             "javax.inject:javax.inject",
@@ -34,7 +34,7 @@ run_singlejar(
     out = "bazel-rules-jvm-external-resolver-gradle-plugin.jar",
     include_prefixes = [
         "META-INF",
-        "org",
+        "com",
     ],
 )
 
@@ -42,6 +42,6 @@ jvm_import(
     name = "plugin",
     jars = ["plugin-singlejar"],
     visibility = [
-        "//private/tools/java/org/gradle/demo:__subpackages__",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle2:__subpackages__",
     ],
 )
