@@ -1,0 +1,28 @@
+load("//:defs.bzl", "artifact")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
+copy_file(
+    name = "plugin-properties",
+    src = "org.gradle.demo.plugin.custom.model.properties",
+    out = "META-INF/gradle-plugins/org.gradle.demo.plugin.custom.model.properties",
+)
+
+java_library(
+    name = "plugin",
+    srcs = glob(["*.java"]),
+    resource_strip_prefix = package_name(),
+    resources = [
+        ":plugin-properties",
+    ],
+    visibility = [
+        "//private/tools/java/org/gradle/demo:__subpackages__",
+    ],
+    deps = [
+        "//private/tools/java/org/gradle/demo/model",
+        "@gradle",
+        artifact(
+            "javax.inject:javax.inject",
+            repository_name = "rules_jvm_external_deps",
+        ),
+    ],
+)

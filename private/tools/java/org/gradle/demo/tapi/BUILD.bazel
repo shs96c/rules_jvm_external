@@ -1,0 +1,32 @@
+load("//:defs.bzl", "artifact")
+
+java_library(
+    name = "tapi",
+    srcs = glob(["*.java"]),
+    resources = [
+        "init.gradle",
+    ],
+    deps = [
+        "//private/tools/java/org/gradle/demo/model",
+        "//private/tools/java/org/gradle/demo/plugin",
+        "@bazel_tools//tools/java/runfiles",
+        "@gradle//:gradle-tooling-api",
+    ],
+)
+
+java_binary(
+    name = "inspector",
+    data = [
+        "@gradle//:distribution",
+        "@gradle//:gradle-7.6/README",
+    ],
+    env = {"GRADLE_ROOT": "$(rlocationpath @gradle//:gradle-7.6/README)"},
+    main_class = "org.gradle.demo.tapi.App",
+    runtime_deps = [
+        ":tapi",
+        artifact(
+            "com.google.guava:guava",
+            repository_name = "rules_jvm_external_deps",
+        ),
+    ],
+)

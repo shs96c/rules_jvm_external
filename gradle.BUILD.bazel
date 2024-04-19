@@ -126,3 +126,21 @@ java_library(
     runtime_deps = [jar.split("/")[-1] for jar in RUNTIME_DEPS],
     exports = [jar.split("/")[-1] for jar in RUNTIME_DEPS],
 )
+
+jvm_import(
+    name = "gradle-tooling-api",
+    jars = [
+        "gradle-tooling-api-%s.jar" % GRADLE_VERSION,
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "distribution",
+    srcs = glob(["gradle-%s/**/*" % GRADLE_VERSION]),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["gradle-%s/README" % GRADLE_VERSION],
+)

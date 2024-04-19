@@ -1,0 +1,8 @@
+java_library(
+    name = "model",
+    srcs = glob(["*.java"]),
+    visibility = ["//private/tools/java/org/gradle/demo:__subpackages__"],
+    deps = [
+        "@gradle",
+    ],
+)
