@@ -1,5 +1,7 @@
 load("//:defs.bzl", "artifact")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_tools//tools/android:defs.bzl", "run_singlejar")
+load("@rules_jvm_external//private/rules:jvm_import.bzl", "jvm_import")
 
 copy_file(
     name = "plugin-properties",
@@ -8,14 +10,11 @@ copy_file(
 )
 
 java_library(
-    name = "plugin",
+    name = "plugin-lib",
     srcs = glob(["*.java"]),
     resource_strip_prefix = package_name(),
     resources = [
         ":plugin-properties",
-    ],
-    visibility = [
-        "//private/tools/java/org/gradle/demo:__subpackages__",
     ],
     deps = [
         "//private/tools/java/org/gradle/demo/model",
@@ -24,5 +23,25 @@ java_library(
             "javax.inject:javax.inject",
             repository_name = "rules_jvm_external_deps",
         ),
+    ],
+)
+
+run_singlejar(
+    name = "plugin-singlejar",
+    srcs = [
+        ":plugin-lib",
+    ],
+    out = "bazel-rules-jvm-external-resolver-gradle-plugin.jar",
+    include_prefixes = [
+        "META-INF",
+        "org",
+    ],
+)
+
+jvm_import(
+    name = "plugin",
+    jars = ["plugin-singlejar"],
+    visibility = [
+        "//private/tools/java/org/gradle/demo:__subpackages__",
     ],
 )
