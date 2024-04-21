@@ -5,22 +5,27 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.internal.artifacts.ArtifactDependencyResolver;
 import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry;
 
 import javax.inject.Inject;
 
 public class CustomModelInjectionPlugin implements Plugin<Project> {
     private final ToolingModelBuilderRegistry registry;
+    private final ArtifactDependencyResolver resolver;
 
     @Inject
-    public CustomModelInjectionPlugin(ToolingModelBuilderRegistry registry) {
+    public CustomModelInjectionPlugin(
+            ToolingModelBuilderRegistry registry,
+            ArtifactDependencyResolver resolver) {
         this.registry = registry;
+        this.resolver = resolver;
     }
 
 
     public void apply(Project project) {
         if (project == project.getRootProject()) {
-            registry.register(new OutgoingArtifactsModelBuilder());
+            registry.register(new OutgoingArtifactsModelBuilder(resolver));
         }
     }
 }

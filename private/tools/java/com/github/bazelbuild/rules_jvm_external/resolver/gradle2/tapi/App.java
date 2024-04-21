@@ -20,6 +20,8 @@ import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin.CustomMo
 import com.google.devtools.build.runfiles.Runfiles;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ModelBuilder;
+import org.gradle.tooling.ProgressEvent;
+import org.gradle.tooling.ProgressListener;
 import org.gradle.tooling.ProjectConnection;
 
 import java.io.BufferedReader;
@@ -52,9 +54,17 @@ public class App {
         ProjectConnection connection = null;
         try {
             connection = connector.connect();
-            ModelBuilder<OutgoingArtifactsModel> customModelBuilder = connection.model(OutgoingArtifactsModel.class);
-            customModelBuilder.withArguments("--init-script", copyInitScript().getAbsolutePath());
-            OutgoingArtifactsModel model = customModelBuilder.get();
+            ModelBuilder<OutgoingArtifactsModel> modelBuilder = connection.model(OutgoingArtifactsModel.class);
+            modelBuilder.setStandardError(System.err);
+            modelBuilder.setStandardOutput(System.out);
+            modelBuilder.addProgressListener(new ProgressListener() {
+                @Override
+                public void statusChanged(ProgressEvent progressEvent) {
+                    System.err.println(progressEvent.getDescription());
+                }
+            });
+            modelBuilder.withArguments("--init-script", copyInitScript().getAbsolutePath());
+            OutgoingArtifactsModel model = modelBuilder.get();
             for (File artifact : model.getArtifacts()) {
                 System.out.println("artifact = " + artifact);
             }
@@ -71,12 +81,8 @@ public class App {
         File pluginJar = lookupJar(CustomModelInjectionPlugin.class);
         File modelJar = lookupJar(OutgoingArtifactsModel.class);
         String name = "/" + App.class.getPackageName().replace('.', '/') + "/init.gradle";
-        System.err.println(name);
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(App.class.getResourceAsStream(
-                        name))
-        )) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(App.class.getResourceAsStream(name)))) {
             reader.lines()
                     .forEach(line -> {
                         String repl = line.replace("%%PLUGIN_JAR%%", pluginJar.getAbsolutePath())
@@ -85,8 +91,7 @@ public class App {
                         if (File.separatorChar=='\\') {
                             repl = repl.replace('\\', '/');
                         }
-                        sb.append(repl)
-                                .append("\n");
+                        sb.append(repl).append("\n");
                     });
         }
         Files.copy(new ByteArrayInputStream(sb.toString().getBytes(Charset.defaultCharset())),

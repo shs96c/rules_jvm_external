@@ -21,6 +21,9 @@ java_binary(
         "@gradle//:gradle-7.6/README",
     ],
     env = {"GRADLE_ROOT": "$(rlocationpath @gradle//:gradle-7.6/README)"},
+    jvm_flags = [
+        "-Dslf4j.internal.verbosity=ERROR",
+    ],
     main_class = "com.github.bazelbuild.rules_jvm_external.resolver.gradle2.tapi.App",
     runtime_deps = [
         ":tapi",
