@@ -192,6 +192,83 @@ def _generate_compat_repos(name, existing_compat_repos, artifacts):
 
     return seen
 
+_DEFAULT_VERSION_KEY = "this version number will never exist"
+_IGNORED_KEYS = ["group", "artifact", "version"]
+
+def get_parsed(artifact):
+    if type(artifact) == "string":
+        return parse.parse_maven_coordinate(artifact)
+    return artifact
+
+def add_artifact(existing, artifact_to_add):
+    # We store the artifacts in a tree with the structure:
+    # group -> artifact -> version -> additional_flags
+    # This allows us to have multiple versions of the same artifact (which
+    # people will do from time to time)
+    parsed = get_parsed(artifact_to_add)
+
+    group = existing.get(parsed["group"], {})
+    artifact = group.get(parsed["artifact"], {})
+
+    # The artifact version is optional given that we support SBOMs
+    version_number = parsed["version"] if "version" in parsed else _DEFAULT_VERSION_KEY
+    leaf = artifact.get(version_number, {})
+
+    for (key, value) in parsed.items():
+        if key in _IGNORED_KEYS:
+            continue
+        leaf[key] = value
+
+    artifact[version_number] = leaf
+    group[parsed["artifact"]] = artifact
+    existing[parsed["group"]] = group
+
+    return existing
+
+def set_artifact(repo_name, existing, artifact_to_add):
+    parsed = get_parsed(artifact_to_add)
+
+    group = existing.get(parsed["group"], {})
+
+    # Compare ourselves with the version we already have
+    nice_name = parsed["group"] + ":" + parsed["artifact"]
+    existing_version_numbers = group[parsed["artifact"]].keys()
+    if len(existing_version_numbers) > 1:
+        print("%s: For %s selecting %s from %s" % (repo_name, nice_name, parsed["version"], ", ".join(existing_version_numbers)))
+    elif len(existing_version_numbers) == 1 and existing_version_numbers[0] != parsed["version"]:
+        print("%s: For %s using %s instead of %s" % (repo_name, nice_name, parsed["version"], existing_version_numbers[0]))
+
+    artifact = {}
+
+    # The artifact version is optional given that we support SBOMs
+    version_number = parsed["version"] if "version" in parsed else _DEFAULT_VERSION_KEY
+    leaf = {}
+
+    for (key, value) in parsed.items():
+        if key in _IGNORED_KEYS:
+            continue
+        leaf[key] = value
+
+    artifact[version_number] = leaf
+    group[parsed["artifact"]] = artifact
+    existing[parsed["group"]] = group
+
+    return existing
+
+def render_artifacts(existing):
+    artifacts = []
+
+    for (group, group_values) in sorted(existing.items()):
+        for (artifact, artifact_values) in sorted(group_values.items()):
+            for (version, version_values) in sorted(artifact_values.items()):
+                to_add = {"group": group, "artifact": artifact}
+                if version != _DEFAULT_VERSION_KEY:
+                    to_add["version"] = version
+                to_add.update(version_values)
+                artifacts.append(to_add)
+
+    return artifacts
+
 def _maven_impl(mctx):
     repos = {}
     overrides = {}
@@ -235,7 +312,7 @@ def _maven_impl(mctx):
             _check_repo_name(repo_name_2_module_name, artifact.name, mod.name)
 
             repo = repos.get(artifact.name, {})
-            existing_artifacts = repo.get("artifacts", [])
+            existing_artifacts = repo.get("artifacts", {})
 
             to_add = {
                 "group": artifact.group,
@@ -265,8 +342,8 @@ def _maven_impl(mctx):
                 artifact_exclusions = _add_exclusions(artifact.exclusions + artifact_exclusions)
                 to_add.update({"exclusions": artifact_exclusions})
 
-            existing_artifacts.append(to_add)
-            repo["artifacts"] = existing_artifacts
+            repo["artifacts"] = add_artifact(existing_artifacts, to_add)
+
             repos[artifact.name] = repo
 
         for install in mod.tags.install:
@@ -276,8 +353,10 @@ def _maven_impl(mctx):
 
             repo["resolver"] = install.resolver
 
-            artifacts = repo.get("artifacts", [])
-            repo["artifacts"] = artifacts + install.artifacts
+            artifacts = repo.get("artifacts", {})
+            for a in install.artifacts:
+                artifacts = add_artifact(artifacts, a)
+            repo["artifacts"] = artifacts
 
             boms = repo.get("boms", [])
             repo["boms"] = boms + install.boms
@@ -355,6 +434,12 @@ def _maven_impl(mctx):
             for install in mod.tags.install:
                 repo = repos[install.name]
 
+                # The root module's artifacts should be the ones that are used
+                artifacts = repo["artifacts"]
+                for a in install.artifacts:
+                    artifacts = set_artifact(install.name, artifacts, a)
+                repo["artifacts"] = artifacts
+
                 # We will always have a lock file, so this is fine
                 repo_to_lock_file[install.name] = [install.lock_file]
                 repo["fail_if_repin_required"] = install.fail_if_repin_required
@@ -371,6 +456,10 @@ def _maven_impl(mctx):
                             mapped_repos.append(repo_string)
                     repo["repositories"] = mapped_repos
 
+                # If someone has set a value in the root module's `artifacts`, they should
+                # be the ones that are used. Without this, it's not always possible to override
+                # artifact versions from other repos contributing to the same namespace
+
                 repos[install.name] = repo
 
     # There should be at most one lock file per `name`
@@ -386,7 +475,7 @@ def _maven_impl(mctx):
     for (name, repo) in repos.items():
         boms = parse.parse_artifact_spec_list(repo.get("boms", []))
         boms_json = [_json.write_artifact_spec(a) for a in boms]
-        artifacts = parse.parse_artifact_spec_list(repo["artifacts"])
+        artifacts = parse.parse_artifact_spec_list(render_artifacts(repo["artifacts"]))
         artifacts_json = [_json.write_artifact_spec(a) for a in artifacts]
         excluded_artifacts = parse.parse_exclusion_spec_list(repo.get("excluded_artifacts", []))
         excluded_artifacts_json = [_json.write_exclusion_spec(a) for a in excluded_artifacts]
