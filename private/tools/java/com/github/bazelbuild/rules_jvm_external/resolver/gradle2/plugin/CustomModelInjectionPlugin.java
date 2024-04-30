@@ -6,6 +6,10 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.internal.artifacts.ArtifactDependencyResolver;
+import org.gradle.internal.logging.progress.ProgressLogger;
+import org.gradle.internal.logging.progress.ProgressLoggerFactory;
+import org.gradle.internal.operations.BuildOperationIdFactory;
+import org.gradle.internal.operations.BuildOperationProgressEventEmitter;
 import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry;
 
 import javax.inject.Inject;
@@ -13,19 +17,34 @@ import javax.inject.Inject;
 public class CustomModelInjectionPlugin implements Plugin<Project> {
     private final ToolingModelBuilderRegistry registry;
     private final ArtifactDependencyResolver resolver;
+    private final BuildOperationProgressEventEmitter emitter;
+    private final ProgressLoggerFactory progressLoggerFactory;
+    private final BuildOperationIdFactory buildOperationIdFactory;
 
     @Inject
     public CustomModelInjectionPlugin(
             ToolingModelBuilderRegistry registry,
-            ArtifactDependencyResolver resolver) {
+            ArtifactDependencyResolver resolver,
+            BuildOperationIdFactory buildOperationIdFactory,
+            BuildOperationProgressEventEmitter emitter,
+            ProgressLoggerFactory progressLoggerFactory) {
         this.registry = registry;
         this.resolver = resolver;
+        this.buildOperationIdFactory = buildOperationIdFactory;
+        this.emitter = emitter;
+        this.progressLoggerFactory = progressLoggerFactory;
     }
 
 
     public void apply(Project project) {
+        System.out.println("Progress logger factory: " + progressLoggerFactory);
+
+        ProgressLogger pl = progressLoggerFactory.newOperation("magic");
+        pl.setDescription("I like eating cheese");
+        pl.start("Greeting", null);
+
         if (project == project.getRootProject()) {
-            registry.register(new OutgoingArtifactsModelBuilder(resolver));
+            registry.register(new OutgoingArtifactsModelBuilder(resolver, buildOperationIdFactory, emitter));
         }
     }
 }

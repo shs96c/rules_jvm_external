@@ -23,6 +23,7 @@ import org.gradle.tooling.ModelBuilder;
 import org.gradle.tooling.ProgressEvent;
 import org.gradle.tooling.ProgressListener;
 import org.gradle.tooling.ProjectConnection;
+import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -39,9 +40,11 @@ import java.security.CodeSource;
 
 public class App {
     public static void main(String... args) throws Exception {
+        System.err.println("Creating a new gradle connector");
         GradleConnector connector = GradleConnector.newConnector();
         File projectPath = findProjectPath(System.getenv("BUILD_WORKING_DIRECTORY"));
         connector.forProjectDirectory(projectPath);
+        ((DefaultGradleConnector) connector).embedded(true);
 
         Runfiles.Preloaded runfiles = Runfiles.preload();
         String gradleDir = runfiles.unmapped().rlocation(System.getenv("GRADLE_ROOT"));
@@ -53,16 +56,12 @@ public class App {
 
         ProjectConnection connection = null;
         try {
+            System.err.println("About to connect to project");
             connection = connector.connect();
             ModelBuilder<OutgoingArtifactsModel> modelBuilder = connection.model(OutgoingArtifactsModel.class);
             modelBuilder.setStandardError(System.err);
             modelBuilder.setStandardOutput(System.out);
-            modelBuilder.addProgressListener(new ProgressListener() {
-                @Override
-                public void statusChanged(ProgressEvent progressEvent) {
-                    System.err.println(progressEvent.getDescription());
-                }
-            });
+            modelBuilder.addProgressListener((ProgressListener) progressEvent -> System.err.printf("event: %s -> %s%n", progressEvent.getClass(), progressEvent.getDescription()));
             modelBuilder.withArguments("--init-script", copyInitScript().getAbsolutePath());
             OutgoingArtifactsModel model = modelBuilder.get();
             for (File artifact : model.getArtifacts()) {
@@ -72,7 +71,9 @@ public class App {
             if (connection != null) {
                 connection.close();
             }
+            connector.disconnect();
         }
+        System.exit(0);
     }
 
     private static File copyInitScript() throws IOException, URISyntaxException {
