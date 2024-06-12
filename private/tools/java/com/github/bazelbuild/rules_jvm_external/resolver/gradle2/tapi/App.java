@@ -64,7 +64,7 @@ public class App {
             modelBuilder.addProgressListener((ProgressListener) progressEvent -> System.err.printf("event: %s -> %s%n", progressEvent.getClass(), progressEvent.getDescription()));
             modelBuilder.withArguments("--init-script", copyInitScript().getAbsolutePath());
             OutgoingArtifactsModel model = modelBuilder.get();
-            for (File artifact : model.getArtifacts()) {
+            for (String artifact : model.getArtifacts()) {
                 System.out.println("artifact = " + artifact);
             }
         } finally {

@@ -15,9 +15,8 @@
  */
 package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model;
 
-import java.io.File;
-import java.util.List;
+import java.util.Collection;
 
 public interface OutgoingArtifactsModel {
-    List<File> getArtifacts();
+    Collection<String> getArtifacts();
 }

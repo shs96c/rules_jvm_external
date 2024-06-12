@@ -16,22 +16,13 @@ import javax.inject.Inject;
 
 public class CustomModelInjectionPlugin implements Plugin<Project> {
     private final ToolingModelBuilderRegistry registry;
-    private final ArtifactDependencyResolver resolver;
-    private final BuildOperationProgressEventEmitter emitter;
     private final ProgressLoggerFactory progressLoggerFactory;
-    private final BuildOperationIdFactory buildOperationIdFactory;
 
     @Inject
     public CustomModelInjectionPlugin(
             ToolingModelBuilderRegistry registry,
-            ArtifactDependencyResolver resolver,
-            BuildOperationIdFactory buildOperationIdFactory,
-            BuildOperationProgressEventEmitter emitter,
             ProgressLoggerFactory progressLoggerFactory) {
         this.registry = registry;
-        this.resolver = resolver;
-        this.buildOperationIdFactory = buildOperationIdFactory;
-        this.emitter = emitter;
         this.progressLoggerFactory = progressLoggerFactory;
     }
 
@@ -44,7 +35,7 @@ public class CustomModelInjectionPlugin implements Plugin<Project> {
         pl.start("Greeting", null);
 
         if (project == project.getRootProject()) {
-            registry.register(new OutgoingArtifactsModelBuilder(resolver, buildOperationIdFactory, emitter));
+            registry.register(new OutgoingArtifactsModelBuilder());
         }
     }
 }

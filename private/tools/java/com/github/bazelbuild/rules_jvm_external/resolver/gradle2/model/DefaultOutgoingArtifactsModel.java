@@ -17,17 +17,18 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
 
 public class DefaultOutgoingArtifactsModel implements OutgoingArtifactsModel, Serializable {
-    private final List<File> artifacts;
+    private final Collection<String> artifacts;
 
-    public DefaultOutgoingArtifactsModel(List<File> artifacts) {
+    public DefaultOutgoingArtifactsModel(Collection<String> artifacts) {
         this.artifacts = artifacts;
     }
 
     @Override
-    public List<File> getArtifacts() {
+    public Collection<String> getArtifacts() {
         return artifacts;
     }
 }
