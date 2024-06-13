@@ -19,16 +19,18 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class DefaultOutgoingArtifactsModel implements OutgoingArtifactsModel, Serializable {
-    private final Collection<String> artifacts;
+    private final Map<String, Set<String>> artifacts;
 
-    public DefaultOutgoingArtifactsModel(Collection<String> artifacts) {
+    public DefaultOutgoingArtifactsModel(Map<String, Set<String>> artifacts) {
         this.artifacts = artifacts;
     }
 
     @Override
-    public Collection<String> getArtifacts() {
+    public Map<String, Set<String>> getArtifacts() {
         return artifacts;
     }
 }

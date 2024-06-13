@@ -17,6 +17,11 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.tapi;
 
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.OutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin.CustomModelInjectionPlugin;
+import com.google.common.base.Joiner;
+import com.google.common.graph.Graph;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.ImmutableGraph;
+import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.runfiles.Runfiles;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ModelBuilder;
@@ -37,6 +42,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.CodeSource;
+import java.util.Map;
+import java.util.Set;
 
 public class App {
     public static void main(String... args) throws Exception {
@@ -64,9 +71,26 @@ public class App {
             modelBuilder.addProgressListener((ProgressListener) progressEvent -> System.err.printf("event: %s -> %s%n", progressEvent.getClass(), progressEvent.getDescription()));
             modelBuilder.withArguments("--init-script", copyInitScript().getAbsolutePath());
             OutgoingArtifactsModel model = modelBuilder.get();
-            for (String artifact : model.getArtifacts()) {
-                System.out.println("artifact = " + artifact);
+
+            Map<String, Set<String>> rawGraph = model.getArtifacts();
+
+            Joiner.MapJoiner mapJoiner = Joiner.on("\n").withKeyValueSeparator("=");
+            System.err.println(mapJoiner.join(rawGraph));
+
+            MutableGraph<String> graph = GraphBuilder.directed()
+                    .allowsSelfLoops(true)
+                    .build();
+
+            for (Map.Entry<String, Set<String>> entry : rawGraph.entrySet()) {
+                graph.addNode(entry.getKey());
+                for (String value : entry.getValue()) {
+                    graph.addNode(value);
+                    graph.putEdge(entry.getKey(), value);
+                }
             }
+
+            Graph<String> finalGraph = ImmutableGraph.copyOf(graph);
+            System.err.println(finalGraph);
         } finally {
             if (connection != null) {
                 connection.close();

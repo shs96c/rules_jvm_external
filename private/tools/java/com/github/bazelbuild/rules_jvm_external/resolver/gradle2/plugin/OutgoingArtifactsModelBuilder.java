@@ -27,7 +27,9 @@ import org.gradle.tooling.provider.model.ToolingModelBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
@@ -44,26 +46,26 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     @Override
     public Object buildAll(String modelName, Project project) {
         ConfigurationContainer configs = project.getConfigurations();
-        for (Configuration config : configs) {
-            System.err.println("config: " + config.getName());
-        }
         Configuration defaultConfig = configs.getByName("compileClasspath");
         ResolvedComponentResult result = defaultConfig.getIncoming().getResolutionResult().getRootComponent().get();
 
-        Set<String> artifacts = new TreeSet<>();
+        Map<String, Set<String>> artifacts = new TreeMap<>();
         reportComponent(result, artifacts);
 
         return new DefaultOutgoingArtifactsModel(artifacts);
     }
 
-    private void reportComponent(ResolvedComponentResult component, Set<String> artifacts) {
-        for (DependencyResult dependency : component.getDependencies()) {
-            artifacts.add(dependency.getRequested().getDisplayName());
+    private void reportComponent(ResolvedComponentResult component, Map<String, Set<String>> artifacts) {
+        String componentName = component.getId().getDisplayName();
+        Set<String> knownDeps = artifacts.computeIfAbsent(componentName, ignored -> new TreeSet<>());
 
+        for (DependencyResult dependency : component.getDependencies()) {
             if (dependency instanceof ResolvedDependencyResult) {
                 ResolvedDependencyResult resolvedDependency = (ResolvedDependencyResult) dependency;
+                knownDeps.add(dependency.getRequested().getDisplayName());
                 reportComponent(resolvedDependency.getSelected(), artifacts);
             }
         }
+        artifacts.put(componentName, knownDeps);
     }
 }
