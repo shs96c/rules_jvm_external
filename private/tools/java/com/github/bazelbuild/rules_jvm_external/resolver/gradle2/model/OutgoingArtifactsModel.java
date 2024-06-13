@@ -19,5 +19,5 @@ import java.util.Map;
 import java.util.Set;
 
 public interface OutgoingArtifactsModel {
-    Map<String, Set<String>> getArtifacts();
+  Map<String, Set<String>> getArtifacts();
 }

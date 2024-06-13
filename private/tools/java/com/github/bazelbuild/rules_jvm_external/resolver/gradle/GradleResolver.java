@@ -13,7 +13,6 @@ import com.github.bazelbuild.rules_jvm_external.resolver.netrc.Netrc;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.nio.file.Path;
@@ -61,13 +60,11 @@ import org.gradle.api.specs.Specs;
 import org.gradle.execution.ProjectExecutionServices;
 import org.gradle.internal.logging.LoggingManagerInternal;
 import org.gradle.internal.logging.services.LoggingServiceRegistry;
-import org.gradle.internal.logging.slf4j.OutputEventListenerBackedLoggerContext;
 import org.gradle.internal.nativeintegration.services.NativeServices;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.internal.service.ServiceRegistryBuilder;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.Reporter;
-import org.slf4j.impl.StaticLoggerBinder;
 
 public class GradleResolver implements Resolver {
 
@@ -127,8 +124,6 @@ public class GradleResolver implements Resolver {
 
     return (ResolutionAwareRepository) maven;
   }
-
-
 
   @Override
   public ResolutionResult resolve(ResolutionRequest request) {
@@ -276,9 +271,7 @@ public class GradleResolver implements Resolver {
     //              System.err.println(dep + " -> " + requiredVersion);
     //            });
 
-    return new ResolutionResult(
-            coordinatesVisitor.getDependencyGraph(),
-            Set.of());
+    return new ResolutionResult(coordinatesVisitor.getDependencyGraph(), Set.of());
   }
 
   private void setupGradleSlf4jServices() {

@@ -17,6 +17,10 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle2.plugin;
 
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.DefaultOutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle2.model.OutgoingArtifactsModel;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
@@ -25,47 +29,41 @@ import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.tooling.provider.model.ToolingModelBuilder;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-
 public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
-    private static final String MODEL_NAME = OutgoingArtifactsModel.class.getName();
+  private static final String MODEL_NAME = OutgoingArtifactsModel.class.getName();
 
-    public OutgoingArtifactsModelBuilder() {
+  public OutgoingArtifactsModelBuilder() {}
+
+  @Override
+  public boolean canBuild(String modelName) {
+    return modelName.equals(MODEL_NAME);
+  }
+
+  @Override
+  public Object buildAll(String modelName, Project project) {
+    ConfigurationContainer configs = project.getConfigurations();
+    Configuration defaultConfig = configs.getByName("compileClasspath");
+    ResolvedComponentResult result =
+        defaultConfig.getIncoming().getResolutionResult().getRootComponent().get();
+
+    Map<String, Set<String>> artifacts = new TreeMap<>();
+    reportComponent(result, artifacts);
+
+    return new DefaultOutgoingArtifactsModel(artifacts);
+  }
+
+  private void reportComponent(
+      ResolvedComponentResult component, Map<String, Set<String>> artifacts) {
+    String componentName = component.getId().getDisplayName();
+    Set<String> knownDeps = artifacts.computeIfAbsent(componentName, ignored -> new TreeSet<>());
+
+    for (DependencyResult dependency : component.getDependencies()) {
+      if (dependency instanceof ResolvedDependencyResult) {
+        ResolvedDependencyResult resolvedDependency = (ResolvedDependencyResult) dependency;
+        knownDeps.add(dependency.getRequested().getDisplayName());
+        reportComponent(resolvedDependency.getSelected(), artifacts);
+      }
     }
-
-    @Override
-    public boolean canBuild(String modelName) {
-        return modelName.equals(MODEL_NAME);
-    }
-
-    @Override
-    public Object buildAll(String modelName, Project project) {
-        ConfigurationContainer configs = project.getConfigurations();
-        Configuration defaultConfig = configs.getByName("compileClasspath");
-        ResolvedComponentResult result = defaultConfig.getIncoming().getResolutionResult().getRootComponent().get();
-
-        Map<String, Set<String>> artifacts = new TreeMap<>();
-        reportComponent(result, artifacts);
-
-        return new DefaultOutgoingArtifactsModel(artifacts);
-    }
-
-    private void reportComponent(ResolvedComponentResult component, Map<String, Set<String>> artifacts) {
-        String componentName = component.getId().getDisplayName();
-        Set<String> knownDeps = artifacts.computeIfAbsent(componentName, ignored -> new TreeSet<>());
-
-        for (DependencyResult dependency : component.getDependencies()) {
-            if (dependency instanceof ResolvedDependencyResult) {
-                ResolvedDependencyResult resolvedDependency = (ResolvedDependencyResult) dependency;
-                knownDeps.add(dependency.getRequested().getDisplayName());
-                reportComponent(resolvedDependency.getSelected(), artifacts);
-            }
-        }
-        artifacts.put(componentName, knownDeps);
-    }
+    artifacts.put(componentName, knownDeps);
+  }
 }

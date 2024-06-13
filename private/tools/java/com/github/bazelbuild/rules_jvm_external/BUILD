@@ -1,5 +1,3 @@
-load("//:defs.bzl", "artifact")
-
 java_library(
     name = "rules_jvm_external",
     srcs = glob(["*.java"]),
