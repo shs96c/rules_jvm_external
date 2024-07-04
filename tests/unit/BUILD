@@ -1,9 +1,12 @@
 load(":artifact_utilities_test.bzl", "artifact_utilities_test_suite")
+load(":artifacts_test.bzl", "artifacts_test_suite")
 load(":coursier_test.bzl", "coursier_test_suite")
 load(":coursier_utilities_test.bzl", "coursier_utilities_test_suite")
 load(":java_utilities_test.bzl", "java_utilities_test_suite")
 load(":proxy_test.bzl", "proxy_test_suite")
 load(":specs_test.bzl", "artifact_specs_test_suite")
+
+artifacts_test_suite()
 
 artifact_specs_test_suite()
 
