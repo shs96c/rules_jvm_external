@@ -17,7 +17,7 @@ public class CustomModelInjectionPlugin implements Plugin<Project> {
   }
 
   public void apply(Project project) {
-    if (project == project.getRootProject()) {
+    if (project.equals(project.getRootProject())) {
       registry.register(new OutgoingArtifactsModelBuilder());
     }
   }

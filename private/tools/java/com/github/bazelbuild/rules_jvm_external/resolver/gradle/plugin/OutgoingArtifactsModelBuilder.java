@@ -58,7 +58,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
         defaultConfig.getIncoming().getArtifacts().getArtifacts();
     for (ResolvedArtifactResult specificResult : artifactResults) {
       ResolvedVariantResult variant = specificResult.getVariant();
-      //        System.err.printf("%s -> %s%n", variant, specificResult.getFile());
+              System.err.printf("%s -> %s%n", variant, specificResult.getFile());
     }
 
     Map<String, Set<String>> artifacts = new TreeMap<>();

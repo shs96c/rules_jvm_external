@@ -86,6 +86,8 @@ public class GradleResolver implements Resolver {
     List<String> args = new ArrayList<>();
     args.addAll(List.of("--init-script", copyInitScript().getAbsolutePath()));
     args.add("--warning-mode=none"); // Don't announce to the world all the problems we find
+    args.add("-Dslf4j.internal.verbosity=ERROR");
+    args.add("-Dorg.gradle.daemon.idletimeout=1");
     if (System.getenv("RJE_DEBUG") != null) {
       args.addAll(List.of("-Dorg.gradle.debug=true", "-Dorg.gradle.suspend=true"));
     }
