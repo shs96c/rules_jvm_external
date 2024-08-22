@@ -32,6 +32,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.CodeSource;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -80,13 +82,18 @@ public class GradleResolver implements Resolver {
 
     listener.onEvent(new PhaseEvent("Gathering dependencies"));
     ProjectConnection connection = connector.connect();
+
+    List<String> args = new ArrayList<>();
+    args.addAll(List.of("--init-script", copyInitScript().getAbsolutePath()));
+    args.add("--warning-mode=none"); // Don't announce to the world all the problems we find
+    if (System.getenv("RJE_DEBUG") != null) {
+      args.addAll(List.of("-Dorg.gradle.debug=true", "-Dorg.gradle.suspend=true"));
+    }
+
     OutgoingArtifactsModel model =
         connection
             .model(OutgoingArtifactsModel.class)
-            .withArguments(
-                "--warning-mode=none", // Don't announce to the world all the problems we find
-                "--init-script",
-                copyInitScript().getAbsolutePath())
+            .withArguments(args)
             .addProgressListener(new GradleEventListener(listener))
             .setStandardError(System.err)
             .setStandardOutput(System.out)
