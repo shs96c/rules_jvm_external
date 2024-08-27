@@ -12,94 +12,29 @@ java_library(
 )
 
 GRADLE_VERSION = "7.6.4"
-PREFIX = "lib/"
+PREFIX = "gradle-bin/lib/"
 
 KOTLIN_VERSION = "1.7.10"
 NATIVE_VERSION = "0.22-milestone-25"
 
 MODULES = [
-    #    "file-events-%s.jar" % NATIVE_VERSION,
     "gradle-base-annotations-%s.jar" % GRADLE_VERSION,
     "gradle-base-services-%s.jar" % GRADLE_VERSION,
-    #    "gradle-base-services-groovy-%s.jar" % GRADLE_VERSION,
-    #    "gradle-build-cache-%s.jar" % GRADLE_VERSION,
-    #    "gradle-build-cache-base-%s.jar" % GRADLE_VERSION,
-    #    "gradle-build-cache-packaging-%s.jar" % GRADLE_VERSION,
-    #    "gradle-build-events-%s.jar" % GRADLE_VERSION,
     "gradle-build-operations-%s.jar" % GRADLE_VERSION,
-    #    "gradle-build-option-%s.jar" % GRADLE_VERSION,
-    #    "gradle-cli-%s.jar" % GRADLE_VERSION,
     "gradle-core-%s.jar" % GRADLE_VERSION,
     "gradle-core-api-%s.jar" % GRADLE_VERSION,
     "gradle-enterprise-logging-%s.jar" % GRADLE_VERSION,
-    #    "gradle-enterprise-operations-%s.jar" % GRADLE_VERSION,
     "gradle-enterprise-workers-%s.jar" % GRADLE_VERSION,
-    #    "gradle-execution-%s.jar" % GRADLE_VERSION,
-    #    "gradle-file-collections-%s.jar" % GRADLE_VERSION,
-    #    "gradle-file-temp-%s.jar" % GRADLE_VERSION,
-    #    "gradle-file-watching-%s.jar" % GRADLE_VERSION,
-    #    "gradle-files-%s.jar" % GRADLE_VERSION,
-    #    "gradle-functional-%s.jar" % GRADLE_VERSION,
-    #    "gradle-hashing-%s.jar" % GRADLE_VERSION,
-    #    "gradle-installation-beacon-%s.jar" % GRADLE_VERSION,
-    #    "gradle-jvm-services-%s.jar" % GRADLE_VERSION,
-    #    "gradle-kotlin-dsl-%s.jar" % GRADLE_VERSION,
-    #    "gradle-kotlin-dsl-tooling-models-%s.jar" % GRADLE_VERSION,
-    #    "gradle-launcher-%s.jar" % GRADLE_VERSION,
     "gradle-logging-%s.jar" % GRADLE_VERSION,
     "gradle-logging-api-%s.jar" % GRADLE_VERSION,
     "gradle-messaging-%s.jar" % GRADLE_VERSION,
-    #    "gradle-model-core-%s.jar" % GRADLE_VERSION,
-    #    "gradle-model-groovy-%s.jar" % GRADLE_VERSION,
-    #    "gradle-native-%s.jar" % GRADLE_VERSION,
-    #    "gradle-normalization-java-%s.jar" % GRADLE_VERSION,
-    #    "gradle-persistent-cache-%s.jar" % GRADLE_VERSION,
-    #    "gradle-problems-%s.jar" % GRADLE_VERSION,
-    #    "gradle-process-services-%s.jar" % GRADLE_VERSION,
-    #    "gradle-resources-%s.jar" % GRADLE_VERSION,
-    #    "gradle-runtime-api-info-%s.jar" % GRADLE_VERSION,
-    #    "gradle-snapshots-%s.jar" % GRADLE_VERSION,
     "gradle-tooling-api-%s.jar" % GRADLE_VERSION,
-    #    "gradle-worker-processes-%s.jar" % GRADLE_VERSION,
-    #    "gradle-worker-services-%s.jar" % GRADLE_VERSION,
-    #    "gradle-wrapper-shared-%s.jar" % GRADLE_VERSION,
-    #    "native-platform-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-freebsd-amd64-libcpp-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-linux-aarch64-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-linux-aarch64-ncurses5-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-linux-aarch64-ncurses6-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-linux-amd64-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-linux-amd64-ncurses5-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-linux-amd64-ncurses6-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-osx-aarch64-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-osx-amd64-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-windows-amd64-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-windows-amd64-min-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-windows-i386-%s.jar" % NATIVE_VERSION,
-    #    "native-platform-windows-i386-min-%s.jar" % NATIVE_VERSION,
-    #    "plugins/gradle-composite-builds-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-configuration-cache-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-dependency-management-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-language-groovy-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-language-java-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-language-jvm-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-platform-base-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-platform-jvm-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-plugin-use-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-plugins-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-reporting-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-resources-http-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-security-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-testing-base-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-testing-jvm-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-workers-%s.jar" % GRADLE_VERSION,
-    #    "plugins/gradle-version-control-%s.jar" % GRADLE_VERSION,
 ]
 
 RUNTIME_DEPS = [PREFIX + m for m in MODULES]
 
 [
-    jvm_import(
+    java_import(
         name = jar.split("/")[-1],
         jars = [jar],
     )
@@ -127,5 +62,5 @@ filegroup(
 )
 
 exports_files(
-    ["README"],
+    ["gradle-bin/README"],
 )

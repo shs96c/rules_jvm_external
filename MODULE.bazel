@@ -113,6 +113,7 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 
 http_archive(
     name = "gradle",
+    add_prefix = "gradle-bin",
     build_file = "//:gradle.BUILD.bazel",
     sha256 = "bed1da33cca0f557ab13691c77f38bb67388119e4794d113e051039b80af9bb1",
     strip_prefix = "gradle-7.6.4",

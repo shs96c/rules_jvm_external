@@ -31,10 +31,12 @@ java_library(
 java_binary(
     name = "Resolver",
     data = [
-        "@gradle//:README",
         "@gradle//:distribution",
+        "@gradle//:gradle-bin/README",
     ],
-    env = {"GRADLE_ROOT": "$(rlocationpath @gradle//:README)"},
+    env = {
+        "GRADLE_ROOT": "$(rlocationpath @gradle//:gradle-bin/README)",
+    },
     main_class = "com.github.bazelbuild.rules_jvm_external.resolver.cmd.Main",
     visibility = [
         "//visibility:public",

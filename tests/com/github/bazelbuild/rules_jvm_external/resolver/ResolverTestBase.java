@@ -581,7 +581,7 @@ public abstract class ResolverTestBase {
   }
 
   @Test
-  public void shouldPriortizedVersionsfromBomFilesInOrder() {
+  public void shouldPriortizeVersionsfromBomFilesInOrder() {
     Coordinates jacksonCoreCoords = new Coordinates("com.fasterxml.jackson.core:jackson-core");
 
     Coordinates jacksonBom13 = new Coordinates("com.fasterxml.jackson:jackson-bom:2.13.5");
