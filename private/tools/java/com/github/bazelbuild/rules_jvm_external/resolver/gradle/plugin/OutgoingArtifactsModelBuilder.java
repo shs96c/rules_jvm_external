@@ -21,6 +21,13 @@ import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
+import java.io.File;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
@@ -32,21 +39,7 @@ import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.artifacts.result.ResolvedVariantResult;
-import org.gradle.api.attributes.Attribute;
-import org.gradle.api.attributes.AttributeContainer;
-import org.gradle.api.attributes.Category;
 import org.gradle.tooling.provider.model.ToolingModelBuilder;
-
-import java.io.File;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
-
-import static org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE;
 
 public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
   private static final String MODEL_NAME = OutgoingArtifactsModel.class.getName();
@@ -64,14 +57,21 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     Configuration defaultConfig = configs.getByName("default");
     ResolvableDependencies resolvableDeps = defaultConfig.getIncoming();
 
-    Set<ResolvedArtifactResult> resolvedArtifactResults = resolvableDeps.getArtifacts().getResolvedArtifacts().get();
+    Set<ResolvedArtifactResult> resolvedArtifactResults =
+        resolvableDeps.getArtifacts().getResolvedArtifacts().get();
     Map<ComponentIdentifier, File> knownFiles = collectDownloadedFiles(resolvedArtifactResults);
 
     ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
     Graph<ResolutionData> graph = buildDependencyGraph(result, knownFiles);
     System.err.println("Graph is: " + graph);
-    System.err.println(graph.nodes().stream()
-            .map(d -> String.format("%s -> %s", d.getResult().getId(), (d.getFile() == null ? "null" : d.getFile().getName())))
+    System.err.println(
+        graph.nodes().stream()
+            .map(
+                d ->
+                    String.format(
+                        "%s -> %s",
+                        d.getResult().getId(),
+                        (d.getFile() == null ? "null" : d.getFile().getName())))
             .collect(Collectors.joining("\n")));
 
     Map<String, Set<String>> artifacts = new TreeMap<>();
@@ -81,7 +81,8 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return new DefaultOutgoingArtifactsModel(artifacts);
   }
 
-  private Map<ComponentIdentifier, File> collectDownloadedFiles(Set<ResolvedArtifactResult> result) {
+  private Map<ComponentIdentifier, File> collectDownloadedFiles(
+      Set<ResolvedArtifactResult> result) {
     Map<ComponentIdentifier, File> knownFiles = new HashMap<>();
 
     for (ResolvedArtifactResult artifactResult : result) {
@@ -91,13 +92,17 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return Map.copyOf(knownFiles);
   }
 
-  private Graph<ResolutionData> buildDependencyGraph(ResolvedComponentResult result, Map<ComponentIdentifier, File> knownFiles) {
+  private Graph<ResolutionData> buildDependencyGraph(
+      ResolvedComponentResult result, Map<ComponentIdentifier, File> knownFiles) {
     MutableGraph<ResolutionData> toReturn = GraphBuilder.directed().build();
     amendDependencyGraph(toReturn, result, knownFiles);
     return ImmutableGraph.copyOf(toReturn);
   }
 
-  private void amendDependencyGraph(MutableGraph<ResolutionData> toReturn, ResolvedComponentResult result, Map<ComponentIdentifier, File> knownFiles) {
+  private void amendDependencyGraph(
+      MutableGraph<ResolutionData> toReturn,
+      ResolvedComponentResult result,
+      Map<ComponentIdentifier, File> knownFiles) {
     ComponentIdentifier id = result.getId();
 
     ResolutionData parent = new ResolutionData(result, knownFiles.get(id));
@@ -113,7 +118,8 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
           ResolvedDependencyResult resolved = (ResolvedDependencyResult) dep;
           ResolvedComponentResult selected = resolved.getSelected();
 
-          ResolutionData child = new ResolutionData(resolved.getSelected(), knownFiles.get(selected.getId()));
+          ResolutionData child =
+              new ResolutionData(resolved.getSelected(), knownFiles.get(selected.getId()));
 
           if (toReturn.nodes().contains(child)) {
             continue;

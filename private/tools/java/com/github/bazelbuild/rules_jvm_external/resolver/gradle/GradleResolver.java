@@ -13,7 +13,6 @@ import com.github.bazelbuild.rules_jvm_external.resolver.events.PhaseEvent;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.OutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin.CustomModelInjectionPlugin;
 import com.github.bazelbuild.rules_jvm_external.resolver.netrc.Netrc;
-import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Strings;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
@@ -34,13 +33,10 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.CodeSource;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
@@ -163,8 +159,9 @@ public class GradleResolver implements Resolver {
     Files.write(root.resolve("build.gradle"), contents.toString().getBytes(UTF_8));
 
     Files.write(
-            root.resolve("gradle.properties"),
-            "org.gradle.parallel=true\norg.gradle.caching=true\norg.gradle.debug=true\norg.gradle.debug.suspend=true\n".getBytes(UTF_8));
+        root.resolve("gradle.properties"),
+        "org.gradle.parallel=true\norg.gradle.caching=true\norg.gradle.debug=true\norg.gradle.debug.suspend=true\n"
+            .getBytes(UTF_8));
 
     return root;
   }
