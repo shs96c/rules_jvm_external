@@ -18,6 +18,7 @@ KOTLIN_VERSION = "1.7.10"
 NATIVE_VERSION = "0.22-milestone-25"
 
 MODULES = [
+    "commons-lang-2.6.jar",
     "gradle-base-annotations-%s.jar" % GRADLE_VERSION,
     "gradle-base-services-%s.jar" % GRADLE_VERSION,
     "gradle-build-operations-%s.jar" % GRADLE_VERSION,

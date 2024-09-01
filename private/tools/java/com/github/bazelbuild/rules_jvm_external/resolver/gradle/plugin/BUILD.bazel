@@ -20,6 +20,10 @@ java_library(
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/gradle/model",
         "@gradle",
         artifact(
+            "com.google.guava:guava",
+            repository_name = "rules_jvm_external_deps",
+        ),
+        artifact(
             "javax.inject:javax.inject",
             repository_name = "rules_jvm_external_deps",
         ),
@@ -34,6 +38,10 @@ run_singlejar(
     name = "plugin-singlejar",
     srcs = [
         ":plugin-lib",
+        artifact(
+            "com.google.guava:guava",
+            repository_name = "rules_jvm_external_deps",
+        ),
     ],
     out = "bazel-rules-jvm-external-resolver-gradle-plugin.jar",
     include_prefixes = [

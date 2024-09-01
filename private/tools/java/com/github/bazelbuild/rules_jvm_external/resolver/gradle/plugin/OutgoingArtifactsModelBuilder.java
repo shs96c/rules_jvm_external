@@ -17,21 +17,34 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin;
 
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.DefaultOutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.OutgoingArtifactsModel;
+import com.google.common.graph.Graph;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.ImmutableGraph;
+import com.google.common.graph.MutableGraph;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
+import org.gradle.api.artifacts.ResolvableDependencies;
+import org.gradle.api.artifacts.component.ComponentIdentifier;
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.DependencyResult;
+import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
+import org.gradle.api.artifacts.result.ResolvedVariantResult;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.attributes.AttributeContainer;
 import org.gradle.api.attributes.Category;
 import org.gradle.tooling.provider.model.ToolingModelBuilder;
 
+import java.io.File;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import static org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE;
 
@@ -49,48 +62,73 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
   public Object buildAll(String modelName, Project project) {
     ConfigurationContainer configs = project.getConfigurations();
     Configuration defaultConfig = configs.getByName("default");
-    ResolvedComponentResult result =
-        defaultConfig.getIncoming().getResolutionResult().getRootComponent().get();
+    ResolvableDependencies resolvableDeps = defaultConfig.getIncoming();
+
+    Set<ResolvedArtifactResult> resolvedArtifactResults = resolvableDeps.getArtifacts().getResolvedArtifacts().get();
+    Map<ComponentIdentifier, File> knownFiles = collectDownloadedFiles(resolvedArtifactResults);
+
+    ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
+    Graph<ResolutionData> graph = buildDependencyGraph(result, knownFiles);
+    System.err.println("Graph is: " + graph);
+    System.err.println(graph.nodes().stream()
+            .map(d -> String.format("%s -> %s", d.getResult().getId(), (d.getFile() == null ? "null" : d.getFile().getName())))
+            .collect(Collectors.joining("\n")));
 
     Map<String, Set<String>> artifacts = new TreeMap<>();
-    reportComponent(result, artifacts);
+
+    // Walk the graph. If a node is not a library
 
     return new DefaultOutgoingArtifactsModel(artifacts);
   }
 
-  private void reportComponent(
-      ResolvedComponentResult component, Map<String, Set<String>> artifacts) {
-    String componentName = component.getId().getDisplayName();
-    Set<String> knownDeps = artifacts.computeIfAbsent(componentName, ignored -> new TreeSet<>());
+  private Map<ComponentIdentifier, File> collectDownloadedFiles(Set<ResolvedArtifactResult> result) {
+    Map<ComponentIdentifier, File> knownFiles = new HashMap<>();
 
-    for (DependencyResult dependency : component.getDependencies()) {
-      if (dependency instanceof ResolvedDependencyResult) {
-        ResolvedDependencyResult resolvedDependency = (ResolvedDependencyResult) dependency;
-
-        if (isLibraryComponent(resolvedDependency)) {
-          knownDeps.add(dependency.getRequested().getDisplayName());
-        }
-        reportComponent(resolvedDependency.getSelected(), artifacts);
-      } else {
-        System.err.println("The was: " + dependency.getClass());
-      }
+    for (ResolvedArtifactResult artifactResult : result) {
+      knownFiles.put(artifactResult.getId().getComponentIdentifier(), artifactResult.getFile());
     }
-    artifacts.put(componentName, knownDeps);
+
+    return Map.copyOf(knownFiles);
   }
 
-  private boolean isLibraryComponent(ResolvedDependencyResult result) {
-    AttributeContainer attributes = result.getRequested().getAttributes();
+  private Graph<ResolutionData> buildDependencyGraph(ResolvedComponentResult result, Map<ComponentIdentifier, File> knownFiles) {
+    MutableGraph<ResolutionData> toReturn = GraphBuilder.directed().build();
+    amendDependencyGraph(toReturn, result, knownFiles);
+    return ImmutableGraph.copyOf(toReturn);
+  }
 
-    Attribute<?> category = attributes.keySet().stream()
-            .filter(a -> CATEGORY_ATTRIBUTE.getName().equals(a.getName()))
-            .findFirst()
-            .orElse(null);
+  private void amendDependencyGraph(MutableGraph<ResolutionData> toReturn, ResolvedComponentResult result, Map<ComponentIdentifier, File> knownFiles) {
+    ComponentIdentifier id = result.getId();
 
-    if (category == null) {
-      return true;
+    ResolutionData parent = new ResolutionData(result, knownFiles.get(id));
+
+    if (id instanceof ModuleComponentIdentifier) {
+      toReturn.addNode(parent);
     }
 
-    Object attribute = attributes.getAttribute(category);
-    return Category.LIBRARY.equals(attribute);
+    for (ResolvedVariantResult variant : result.getVariants()) {
+      List<DependencyResult> depsForVariant = result.getDependenciesForVariant(variant);
+      for (DependencyResult dep : depsForVariant) {
+        if (dep instanceof ResolvedDependencyResult) {
+          ResolvedDependencyResult resolved = (ResolvedDependencyResult) dep;
+          ResolvedComponentResult selected = resolved.getSelected();
+
+          ResolutionData child = new ResolutionData(resolved.getSelected(), knownFiles.get(selected.getId()));
+
+          if (toReturn.nodes().contains(child)) {
+            continue;
+          }
+
+          if (selected.getId() instanceof ModuleComponentIdentifier) {
+            toReturn.addNode(child);
+            toReturn.putEdge(parent, child);
+          }
+
+          amendDependencyGraph(toReturn, selected, knownFiles);
+        } else {
+          System.err.println(String.format("Cannot resolve %s (class %s)", dep, dep.getClass()));
+        }
+      }
+    }
   }
 }
