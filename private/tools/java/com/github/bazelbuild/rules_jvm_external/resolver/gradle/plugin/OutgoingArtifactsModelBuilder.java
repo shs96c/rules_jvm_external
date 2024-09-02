@@ -15,6 +15,8 @@
  */
 package com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin;
 
+import static com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin.Attributes.isPlatform;
+
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.DefaultOutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.OutgoingArtifactsModel;
 import com.google.common.graph.Graph;
@@ -23,14 +25,15 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
 import java.io.File;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
+import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
@@ -74,9 +77,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
                         (d.getFile() == null ? "null" : d.getFile().getName())))
             .collect(Collectors.joining("\n")));
 
-    Map<String, Set<String>> artifacts = new TreeMap<>();
-
-    // Walk the graph. If a node is not a library
+    Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, knownFiles);
 
     return new DefaultOutgoingArtifactsModel(artifacts);
   }
@@ -136,5 +137,26 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
         }
       }
     }
+  }
+
+  private Map<String, Set<String>> reconstructDependencyGraph(
+      Project project, Graph<ResolutionData> graph, Map<ComponentIdentifier, File> knownFiles) {
+    // Get the list of dependencies that the user actually asked for
+    Set<ExternalModuleDependency> requestedDeps = new HashSet<>();
+    for (Configuration config : project.getConfigurations()) {
+      config.getDependencies().stream()
+          .filter(d -> d instanceof ExternalModuleDependency)
+          .map(d -> (ExternalModuleDependency) d)
+          .filter(d -> !isPlatform(d.getAttributes()))
+          .peek(d -> System.err.println("Adding " + d))
+          .forEach(requestedDeps::add);
+    }
+    requestedDeps.stream()
+        .forEach(
+            d -> {
+              System.err.println(d);
+            });
+
+    return Map.of();
   }
 }
