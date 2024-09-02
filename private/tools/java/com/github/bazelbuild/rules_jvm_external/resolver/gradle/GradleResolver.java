@@ -132,6 +132,19 @@ public class GradleResolver implements Resolver {
       if ("http".equals(uri.getScheme())) {
         contents.append("    allowInsecureProtocol = true\n");
       }
+      Netrc.Credential credential =
+          netrc.credentials().entrySet().stream()
+              .filter(e -> e.getKey().equals(uri.getHost()))
+              .findFirst()
+              .map(Map.Entry::getValue)
+              .orElse(netrc.defaultCredential());
+      if (credential != null) {
+        contents.append("    credentials {\n");
+        contents.append("        username \"").append(credential.login()).append("\"\n");
+        contents.append("        password \"").append(credential.password()).append("\"\n");
+        contents.append("    }\n");
+      }
+
       contents.append("  }\n");
     }
     contents.append("}\n\n");
