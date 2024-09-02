@@ -34,6 +34,8 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.ExternalModuleDependency;
+import org.gradle.api.artifacts.ModuleIdentifier;
+import org.gradle.api.artifacts.ModuleVersionSelector;
 import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
@@ -66,16 +68,6 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
 
     ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
     Graph<ResolutionData> graph = buildDependencyGraph(result, knownFiles);
-    System.err.println("Graph is: " + graph);
-    System.err.println(
-        graph.nodes().stream()
-            .map(
-                d ->
-                    String.format(
-                        "%s -> %s",
-                        d.getResult().getId(),
-                        (d.getFile() == null ? "null" : d.getFile().getName())))
-            .collect(Collectors.joining("\n")));
 
     Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, knownFiles);
 
@@ -148,15 +140,73 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
           .filter(d -> d instanceof ExternalModuleDependency)
           .map(d -> (ExternalModuleDependency) d)
           .filter(d -> !isPlatform(d.getAttributes()))
-          .peek(d -> System.err.println("Adding " + d))
           .forEach(requestedDeps::add);
     }
-    requestedDeps.stream()
-        .forEach(
-            d -> {
-              System.err.println(d);
-            });
 
-    return Map.of();
+    // Now get the module identifiers for the requested deps
+    Set<ModuleIdentifier> identifiers =
+        requestedDeps.stream().map(ModuleVersionSelector::getModule).collect(Collectors.toSet());
+
+    // And then find the results that match the requested artifacts.
+    // These will form the root of our graph
+    Set<ResolutionData> roots =
+        graph.nodes().stream()
+            .filter(rd -> rd.getResult().getId() instanceof ModuleComponentIdentifier)
+            .filter(
+                rd ->
+                    identifiers.contains(
+                        ((ModuleComponentIdentifier) rd.getResult().getId()).getModuleIdentifier()))
+            .collect(Collectors.toSet());
+
+    Map<String, Set<String>> toReturn = new HashMap<>();
+    for (ResolutionData root : roots) {
+      reconstructDependencyGraph(root, graph, knownFiles, toReturn);
+    }
+
+    return Map.copyOf(toReturn);
+  }
+
+  private void reconstructDependencyGraph(
+      ResolutionData toVisit,
+      Graph<ResolutionData> graph,
+      Map<ComponentIdentifier, File> knownFiles,
+      Map<String, Set<String>> visited) {
+    ComponentIdentifier tempId = toVisit.getResult().getId();
+
+    if (!(tempId instanceof ModuleComponentIdentifier)) {
+      return;
+    }
+
+    ModuleComponentIdentifier id = (ModuleComponentIdentifier) tempId;
+    String key = createKey(id);
+
+    if (visited.containsKey(key)) {
+      return;
+    }
+
+    // To prevent recursion if there's a loop in the graph
+
+    Set<ResolutionData> successors = graph.successors(toVisit);
+    Set<ResolutionData> recurseInto =
+        successors.stream()
+            .filter(rd -> rd.getResult().getId() instanceof ModuleComponentIdentifier)
+            .collect(Collectors.toSet());
+    visited.put(
+        key,
+        recurseInto.stream()
+            .map(rd -> createKey((ModuleComponentIdentifier) rd.getResult().getId()))
+            .collect(Collectors.toSet()));
+    for (ResolutionData dep : recurseInto) {
+      reconstructDependencyGraph(dep, graph, knownFiles, visited);
+    }
+  }
+
+  private String createKey(ModuleComponentIdentifier id) {
+    StringBuilder coords = new StringBuilder();
+    coords.append(id.getGroup()).append(":").append(id.getModule());
+    if (id.getVersion() != null) {
+      coords.append(":").append(id.getVersion());
+    }
+    return coords.toString();
   }
 }
