@@ -17,12 +17,14 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin;
 
 import static com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin.Attributes.isPlatform;
 
+import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.DefaultOutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.OutgoingArtifactsModel;
 import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
+import com.google.common.io.Files;
 import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +41,7 @@ import org.gradle.api.artifacts.ModuleVersionSelector;
 import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.result.ComponentResult;
 import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
@@ -73,17 +76,19 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
     Graph<ResolvedComponentResult> graph = buildDependencyGraph(result);
 
-    // We now rely on the downloaded files to be named following the default
-    // maven format so that we can calculate the coordinates that they would
-    // represent.
-    Map<ComponentIdentifier, Set<File>> knownFiles = collectDownloadedFiles(resolvedArtifactResults);
-
     // Given the (possibly incomplete) graph of dependencies, and the list of
     // possible coordinates, we can now make a decent attempt at
     // reconstructing something that includes all the dependencies that have
     // been downloaded.
+    //
+    // We now rely on the downloaded files to be named following the default
+    // maven format so that we can calculate the coordinates that they would
+    // represent.
+    Map<ComponentIdentifier, Set<File>> knownFiles =
+        collectDownloadedFiles(resolvedArtifactResults);
+    Set<Coordinates> remaining = removeAlreadyIncludedFiles(graph, knownFiles);
 
-    Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph);
+    Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, remaining);
 
     return new DefaultOutgoingArtifactsModel(artifacts);
   }
@@ -98,6 +103,47 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     }
 
     return Map.copyOf(knownFiles);
+  }
+
+  private Set<Coordinates> removeAlreadyIncludedFiles(
+      Graph<ResolvedComponentResult> graph, Map<ComponentIdentifier, Set<File>> knownFiles) {
+    Set<ModuleComponentIdentifier> ids =
+        graph.nodes().stream()
+            .map(ComponentResult::getId)
+            .filter(rcr -> rcr instanceof ModuleComponentIdentifier)
+            .map(rcr -> ((ModuleComponentIdentifier) rcr))
+            .collect(Collectors.toSet());
+
+    Set<Coordinates> toReturn = new HashSet<>();
+
+    for (ModuleComponentIdentifier id : ids) {
+      String fileName = getMavenFileName(id);
+      Set<Coordinates> unused =
+          knownFiles.getOrDefault(id, Set.of()).stream()
+              .filter(f -> !fileName.equals(f.getName()))
+              .map(f -> deriveCoordinates(id, f.getName()))
+              .collect(Collectors.toSet());
+      toReturn.addAll(unused);
+    }
+
+    return Set.copyOf(toReturn);
+  }
+
+  private Coordinates deriveCoordinates(ModuleComponentIdentifier id, String name) {
+    // A maven file name is made of artifactId-version-classifier.extension
+
+    String extension = Files.getFileExtension(name);
+
+    // The classifier is sandwiched between the version and extension (which
+    // is prefixed with a `.`)
+    String prefix = id.getModule() + "-" + id.getVersion() + "-";
+    String classifier = name.substring(prefix.length(), name.length() - extension.length() - 1);
+
+    return new Coordinates(id.getGroup(), id.getModule(), extension, classifier, id.getVersion());
+  }
+
+  private String getMavenFileName(ModuleComponentIdentifier id) {
+    return id.getModule() + "-" + id.getVersion() + ".jar";
   }
 
   private Graph<ResolvedComponentResult> buildDependencyGraph(ResolvedComponentResult result) {
@@ -139,7 +185,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
   }
 
   private Map<String, Set<String>> reconstructDependencyGraph(
-      Project project, Graph<ResolvedComponentResult> graph) {
+      Project project, Graph<ResolvedComponentResult> graph, Set<Coordinates> orphaned) {
     // Get the list of dependencies that the user actually asked for
     Set<ExternalModuleDependency> requestedDeps = new HashSet<>();
     for (Configuration config : project.getConfigurations()) {
@@ -169,6 +215,9 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     for (ResolvedComponentResult root : roots) {
       reconstructDependencyGraph(root, graph, toReturn);
     }
+
+    // We don't know where to put orphaned coordinates, so make them top-level with no deps
+    orphaned.forEach(c -> toReturn.put(c.toString(), Set.of()));
 
     return Map.copyOf(toReturn);
   }
