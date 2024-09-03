@@ -76,7 +76,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     // We now rely on the downloaded files to be named following the default
     // maven format so that we can calculate the coordinates that they would
     // represent.
-    Map<ComponentIdentifier, File> knownFiles = collectDownloadedFiles(resolvedArtifactResults);
+    Map<ComponentIdentifier, Set<File>> knownFiles = collectDownloadedFiles(resolvedArtifactResults);
 
     // Given the (possibly incomplete) graph of dependencies, and the list of
     // possible coordinates, we can now make a decent attempt at
@@ -88,12 +88,13 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return new DefaultOutgoingArtifactsModel(artifacts);
   }
 
-  private Map<ComponentIdentifier, File> collectDownloadedFiles(
+  private Map<ComponentIdentifier, Set<File>> collectDownloadedFiles(
       Set<ResolvedArtifactResult> result) {
-    Map<ComponentIdentifier, File> knownFiles = new HashMap<>();
+    Map<ComponentIdentifier, Set<File>> knownFiles = new HashMap<>();
 
     for (ResolvedArtifactResult artifactResult : result) {
-      knownFiles.put(artifactResult.getId().getComponentIdentifier(), artifactResult.getFile());
+      ComponentIdentifier id = artifactResult.getId().getComponentIdentifier();
+      knownFiles.computeIfAbsent(id, ignored -> new HashSet<>()).add(artifactResult.getFile());
     }
 
     return Map.copyOf(knownFiles);
