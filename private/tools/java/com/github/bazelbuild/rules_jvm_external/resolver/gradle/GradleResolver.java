@@ -54,6 +54,11 @@ public class GradleResolver implements Resolver {
   }
 
   @Override
+  public String getName() {
+    return "gradle";
+  }
+
+  @Override
   public ResolutionResult resolve(ResolutionRequest request) {
     try {
       return resolveAndMaybeThrow(request);
@@ -72,7 +77,9 @@ public class GradleResolver implements Resolver {
     ((DefaultGradleConnector) connector).embedded(true);
 
     Runfiles.Preloaded runfiles = Runfiles.preload();
-    String gradleDir = runfiles.withSourceRepository(AutoBazelRepository_GradleResolver.NAME)
+    String gradleDir =
+        runfiles
+            .withSourceRepository(AutoBazelRepository_GradleResolver.NAME)
             .rlocation("gradle/gradle-bin/README");
     Path gradlePath = Paths.get(gradleDir).getParent();
     if (!Files.exists(gradlePath)) {

@@ -148,13 +148,20 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
 
   private Graph<ResolvedComponentResult> buildDependencyGraph(ResolvedComponentResult result) {
     MutableGraph<ResolvedComponentResult> toReturn = GraphBuilder.directed().build();
-    amendDependencyGraph(toReturn, result);
+    Set<ComponentIdentifier> visited = new HashSet<>();
+    amendDependencyGraph(toReturn, visited, result);
     return ImmutableGraph.copyOf(toReturn);
   }
 
   private void amendDependencyGraph(
-      MutableGraph<ResolvedComponentResult> toReturn, ResolvedComponentResult result) {
+      MutableGraph<ResolvedComponentResult> toReturn,
+      Set<ComponentIdentifier> visited,
+      ResolvedComponentResult result) {
     ComponentIdentifier id = result.getId();
+
+    if (!visited.add(id)) {
+      return;
+    }
 
     if (id instanceof ModuleComponentIdentifier) {
       toReturn.addNode(result);
@@ -176,7 +183,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
             toReturn.putEdge(result, selected);
           }
 
-          amendDependencyGraph(toReturn, selected);
+          amendDependencyGraph(toReturn, visited, selected);
         } else {
           System.err.println(String.format("Cannot resolve %s (class %s)", dep, dep.getClass()));
         }

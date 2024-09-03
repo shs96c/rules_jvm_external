@@ -70,7 +70,7 @@ public class Main {
       ResolutionRequest request = config.getResolutionRequest();
 
       Resolver resolver = config.getResolver();
-      listener.onEvent(new LogEvent("main", "Using resolver: " + resolver, null))/**/;
+      listener.onEvent(new LogEvent("main", "Using resolver: " + resolver.getName(), null));
 
       ResolutionResult resolutionResult = resolver.resolve(request);
 
