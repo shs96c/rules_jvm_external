@@ -17,6 +17,7 @@ import com.google.common.base.Strings;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
+import com.google.devtools.build.runfiles.AutoBazelRepository;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -41,6 +42,7 @@ import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 
+@AutoBazelRepository
 public class GradleResolver implements Resolver {
 
   private final Netrc netrc;
@@ -70,7 +72,8 @@ public class GradleResolver implements Resolver {
     ((DefaultGradleConnector) connector).embedded(true);
 
     Runfiles.Preloaded runfiles = Runfiles.preload();
-    String gradleDir = runfiles.unmapped().rlocation(System.getenv("GRADLE_ROOT"));
+    String gradleDir = runfiles.withSourceRepository(AutoBazelRepository_GradleResolver.NAME)
+            .rlocation("gradle/gradle-bin/README");
     Path gradlePath = Paths.get(gradleDir).getParent();
     if (!Files.exists(gradlePath)) {
       throw new RuntimeException("Unable to find gradle root at: " + gradlePath);

@@ -3,6 +3,10 @@ load("//:defs.bzl", "artifact")
 java_library(
     name = "gradle",
     srcs = glob(["*.java"]),
+    data = [
+        "@gradle//:distribution",
+        "@gradle//:gradle-bin/README",
+    ],
     resources = [
         "init.gradle",
     ],
