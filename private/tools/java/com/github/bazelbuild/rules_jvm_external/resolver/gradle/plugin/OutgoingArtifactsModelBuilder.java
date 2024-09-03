@@ -64,12 +64,26 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
 
     Set<ResolvedArtifactResult> resolvedArtifactResults =
         resolvableDeps.getArtifacts().getResolvedArtifacts().get();
+
+    // Begin by constructing the possible graph of what we want. Gradle will
+    // resolve things at the "module" level (`groupId:artifactId`) and will
+    // "loose" results that only differ by classifier. Because of this, the
+    // graph we have is possibly incomplete, but it's a good place to start
+    // from.
+    ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
+    Graph<ResolvedComponentResult> graph = buildDependencyGraph(result);
+
+    // We now rely on the downloaded files to be named following the default
+    // maven format so that we can calculate the coordinates that they would
+    // represent.
     Map<ComponentIdentifier, File> knownFiles = collectDownloadedFiles(resolvedArtifactResults);
 
-    ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
-    Graph<ResolutionData> graph = buildDependencyGraph(result, knownFiles);
+    // Given the (possibly incomplete) graph of dependencies, and the list of
+    // possible coordinates, we can now make a decent attempt at
+    // reconstructing something that includes all the dependencies that have
+    // been downloaded.
 
-    Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, knownFiles);
+    Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph);
 
     return new DefaultOutgoingArtifactsModel(artifacts);
   }
@@ -85,23 +99,18 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return Map.copyOf(knownFiles);
   }
 
-  private Graph<ResolutionData> buildDependencyGraph(
-      ResolvedComponentResult result, Map<ComponentIdentifier, File> knownFiles) {
-    MutableGraph<ResolutionData> toReturn = GraphBuilder.directed().build();
-    amendDependencyGraph(toReturn, result, knownFiles);
+  private Graph<ResolvedComponentResult> buildDependencyGraph(ResolvedComponentResult result) {
+    MutableGraph<ResolvedComponentResult> toReturn = GraphBuilder.directed().build();
+    amendDependencyGraph(toReturn, result);
     return ImmutableGraph.copyOf(toReturn);
   }
 
   private void amendDependencyGraph(
-      MutableGraph<ResolutionData> toReturn,
-      ResolvedComponentResult result,
-      Map<ComponentIdentifier, File> knownFiles) {
+      MutableGraph<ResolvedComponentResult> toReturn, ResolvedComponentResult result) {
     ComponentIdentifier id = result.getId();
 
-    ResolutionData parent = new ResolutionData(result, knownFiles.get(id));
-
     if (id instanceof ModuleComponentIdentifier) {
-      toReturn.addNode(parent);
+      toReturn.addNode(result);
     }
 
     for (ResolvedVariantResult variant : result.getVariants()) {
@@ -111,19 +120,16 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
           ResolvedDependencyResult resolved = (ResolvedDependencyResult) dep;
           ResolvedComponentResult selected = resolved.getSelected();
 
-          ResolutionData child =
-              new ResolutionData(resolved.getSelected(), knownFiles.get(selected.getId()));
-
-          if (toReturn.nodes().contains(child)) {
+          if (toReturn.nodes().contains(selected)) {
             continue;
           }
 
           if (selected.getId() instanceof ModuleComponentIdentifier) {
-            toReturn.addNode(child);
-            toReturn.putEdge(parent, child);
+            toReturn.addNode(selected);
+            toReturn.putEdge(result, selected);
           }
 
-          amendDependencyGraph(toReturn, selected, knownFiles);
+          amendDependencyGraph(toReturn, selected);
         } else {
           System.err.println(String.format("Cannot resolve %s (class %s)", dep, dep.getClass()));
         }
@@ -132,7 +138,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
   }
 
   private Map<String, Set<String>> reconstructDependencyGraph(
-      Project project, Graph<ResolutionData> graph, Map<ComponentIdentifier, File> knownFiles) {
+      Project project, Graph<ResolvedComponentResult> graph) {
     // Get the list of dependencies that the user actually asked for
     Set<ExternalModuleDependency> requestedDeps = new HashSet<>();
     for (Configuration config : project.getConfigurations()) {
@@ -149,29 +155,28 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
 
     // And then find the results that match the requested artifacts.
     // These will form the root of our graph
-    Set<ResolutionData> roots =
+    Set<ResolvedComponentResult> roots =
         graph.nodes().stream()
-            .filter(rd -> rd.getResult().getId() instanceof ModuleComponentIdentifier)
+            .filter(rd -> rd.getId() instanceof ModuleComponentIdentifier)
             .filter(
                 rd ->
                     identifiers.contains(
-                        ((ModuleComponentIdentifier) rd.getResult().getId()).getModuleIdentifier()))
+                        ((ModuleComponentIdentifier) rd.getId()).getModuleIdentifier()))
             .collect(Collectors.toSet());
 
     Map<String, Set<String>> toReturn = new HashMap<>();
-    for (ResolutionData root : roots) {
-      reconstructDependencyGraph(root, graph, knownFiles, toReturn);
+    for (ResolvedComponentResult root : roots) {
+      reconstructDependencyGraph(root, graph, toReturn);
     }
 
     return Map.copyOf(toReturn);
   }
 
   private void reconstructDependencyGraph(
-      ResolutionData toVisit,
-      Graph<ResolutionData> graph,
-      Map<ComponentIdentifier, File> knownFiles,
+      ResolvedComponentResult toVisit,
+      Graph<ResolvedComponentResult> graph,
       Map<String, Set<String>> visited) {
-    ComponentIdentifier tempId = toVisit.getResult().getId();
+    ComponentIdentifier tempId = toVisit.getId();
 
     if (!(tempId instanceof ModuleComponentIdentifier)) {
       return;
@@ -184,20 +189,18 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
       return;
     }
 
-    // To prevent recursion if there's a loop in the graph
-
-    Set<ResolutionData> successors = graph.successors(toVisit);
-    Set<ResolutionData> recurseInto =
+    Set<ResolvedComponentResult> successors = graph.successors(toVisit);
+    Set<ResolvedComponentResult> recurseInto =
         successors.stream()
-            .filter(rd -> rd.getResult().getId() instanceof ModuleComponentIdentifier)
+            .filter(rd -> rd.getId() instanceof ModuleComponentIdentifier)
             .collect(Collectors.toSet());
     visited.put(
         key,
         recurseInto.stream()
-            .map(rd -> createKey((ModuleComponentIdentifier) rd.getResult().getId()))
+            .map(rd -> createKey((ModuleComponentIdentifier) rd.getId()))
             .collect(Collectors.toSet()));
-    for (ResolutionData dep : recurseInto) {
-      reconstructDependencyGraph(dep, graph, knownFiles, visited);
+    for (ResolvedComponentResult dep : recurseInto) {
+      reconstructDependencyGraph(dep, graph, visited);
     }
   }
 
