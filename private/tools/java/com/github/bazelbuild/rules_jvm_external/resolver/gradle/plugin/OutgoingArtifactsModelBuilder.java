@@ -174,10 +174,6 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
           ResolvedDependencyResult resolved = (ResolvedDependencyResult) dep;
           ResolvedComponentResult selected = resolved.getSelected();
 
-          if (toReturn.nodes().contains(selected)) {
-            continue;
-          }
-
           if (selected.getId() instanceof ModuleComponentIdentifier) {
             toReturn.addNode(selected);
             toReturn.putEdge(result, selected);
