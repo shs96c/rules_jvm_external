@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
@@ -133,7 +132,8 @@ public class GradleResolver implements Resolver {
       }
     }
 
-    Set<Conflict> conflicts = model.getConflicts().entrySet().stream()
+    Set<Conflict> conflicts =
+        model.getConflicts().entrySet().stream()
             .map(e -> new Conflict(new Coordinates(e.getValue()), new Coordinates(e.getKey())))
             .collect(Collectors.toSet());
 
@@ -184,9 +184,17 @@ public class GradleResolver implements Resolver {
     // Add any global exclusions
     if (!request.getGlobalExclusions().isEmpty()) {
       contents.append("configurations.all {\n");
-      request.getGlobalExclusions().forEach(e -> {
-        contents.append("  exclude group: '").append(e.getGroupId()).append("', module: '").append(e.getArtifactId()).append("'\n");
-      });
+      request
+          .getGlobalExclusions()
+          .forEach(
+              e -> {
+                contents
+                    .append("  exclude group: '")
+                    .append(e.getGroupId())
+                    .append("', module: '")
+                    .append(e.getArtifactId())
+                    .append("'\n");
+              });
       contents.append("}\n\n");
     }
 

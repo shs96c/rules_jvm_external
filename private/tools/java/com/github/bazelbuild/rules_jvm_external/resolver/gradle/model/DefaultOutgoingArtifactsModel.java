@@ -23,7 +23,8 @@ public class DefaultOutgoingArtifactsModel implements OutgoingArtifactsModel, Se
   private final Map<String, Set<String>> artifacts;
   private final Map<String, String> conflicts;
 
-  public DefaultOutgoingArtifactsModel(Map<String, Set<String>> artifacts, Map<String, String> conflicts) {
+  public DefaultOutgoingArtifactsModel(
+      Map<String, Set<String>> artifacts, Map<String, String> conflicts) {
     this.artifacts = Map.copyOf(artifacts);
     this.conflicts = Map.copyOf(conflicts);
   }

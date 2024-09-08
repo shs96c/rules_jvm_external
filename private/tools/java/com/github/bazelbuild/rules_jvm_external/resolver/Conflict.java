@@ -15,8 +15,6 @@
 package com.github.bazelbuild.rules_jvm_external.resolver;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
-
-import java.io.Serializable;
 import java.util.Objects;
 
 /**

@@ -153,7 +153,8 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return id.getModule() + "-" + id.getVersion() + ".jar";
   }
 
-  private Graph<ResolvedComponentResult> buildDependencyGraph(ResolvedComponentResult result, Set<Conflict> conflicts) {
+  private Graph<ResolvedComponentResult> buildDependencyGraph(
+      ResolvedComponentResult result, Set<Conflict> conflicts) {
     MutableGraph<ResolvedComponentResult> toReturn = GraphBuilder.directed().build();
     Set<ComponentIdentifier> visited = new HashSet<>();
     amendDependencyGraph(toReturn, visited, conflicts, result);
@@ -187,7 +188,8 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
             toReturn.putEdge(result, selected);
 
             if (!resolved.getRequested().matchesStrictly(selected.getId())) {
-              Conflict conflict = new Conflict(
+              Conflict conflict =
+                  new Conflict(
                       new Coordinates(selected.getId().toString()),
                       new Coordinates(resolved.getRequested().toString()));
               conflicts.add(conflict);
