@@ -171,13 +171,14 @@ public class GradleResolver implements Resolver {
       // We need to remove the `pom` classifier if gradle is going to be happy
       Coordinates defaultCoords = bom.getCoordinates().setClassifier("jar").setExtension(null);
       contents
-          .append("  implementation platform(")
-          .append(toGradleDependencyNotation(new Artifact(defaultCoords, bom.getExclusions())))
-          .append(")\n");
+          .append(
+              toGradleDependencyNotation(
+                  "implementation platform", new Artifact(defaultCoords, bom.getExclusions())))
+          .append("\n");
     }
 
     for (Artifact dep : request.getDependencies()) {
-      contents.append("  implementation(").append(toGradleDependencyNotation(dep)).append(")\n");
+      contents.append(toGradleDependencyNotation("implementation", dep)).append("\n");
     }
     contents.append("}\n\n");
 
@@ -213,10 +214,11 @@ public class GradleResolver implements Resolver {
     return root;
   }
 
-  private String toGradleDependencyNotation(Artifact artifact) {
+  private String toGradleDependencyNotation(String type, Artifact artifact) {
     Coordinates coords = artifact.getCoordinates();
     StringBuilder toReturn =
-        new StringBuilder()
+        new StringBuilder(type)
+            .append("(")
             .append("'")
             .append(coords.getGroupId())
             .append(":")
@@ -230,19 +232,19 @@ public class GradleResolver implements Resolver {
     if (!Strings.isNullOrEmpty(coords.getExtension()) && !"jar".equals(coords.getExtension())) {
       toReturn.append("@").append(coords.getExtension());
     }
-    toReturn.append("'");
+    toReturn.append("')");
 
     if (!artifact.getExclusions().isEmpty()) {
       toReturn.append(" {\n");
       for (Coordinates exclusion : artifact.getExclusions()) {
         toReturn
-            .append("  exclude group: '")
+            .append("    exclude group: '")
             .append(exclusion.getGroupId())
             .append("', module: '")
             .append(exclusion.getArtifactId())
             .append("'\n");
       }
-      toReturn.append("}\n");
+      toReturn.append("  }");
     }
 
     return toReturn.toString();
