@@ -18,6 +18,7 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin;
 import static com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin.Attributes.isPlatform;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
+import com.github.bazelbuild.rules_jvm_external.resolver.Conflict;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.DefaultOutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.OutgoingArtifactsModel;
 import com.google.common.graph.Graph;
@@ -74,7 +75,8 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     // graph we have is possibly incomplete, but it's a good place to start
     // from.
     ResolvedComponentResult result = resolvableDeps.getResolutionResult().getRootComponent().get();
-    Graph<ResolvedComponentResult> graph = buildDependencyGraph(result);
+    HashSet<Conflict> conflicts = new HashSet<>();
+    Graph<ResolvedComponentResult> graph = buildDependencyGraph(result, conflicts);
 
     // Given the (possibly incomplete) graph of dependencies, and the list of
     // possible coordinates, we can now make a decent attempt at
@@ -90,7 +92,12 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
 
     Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, remaining);
 
-    return new DefaultOutgoingArtifactsModel(artifacts);
+    Map<String, String> convertedConflicts = new HashMap<>();
+    for (Conflict conflict : conflicts) {
+      convertedConflicts.put(conflict.getRequested().toString(), conflict.getResolved().toString());
+    }
+
+    return new DefaultOutgoingArtifactsModel(artifacts, convertedConflicts);
   }
 
   private Map<ComponentIdentifier, Set<File>> collectDownloadedFiles(
@@ -146,16 +153,17 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return id.getModule() + "-" + id.getVersion() + ".jar";
   }
 
-  private Graph<ResolvedComponentResult> buildDependencyGraph(ResolvedComponentResult result) {
+  private Graph<ResolvedComponentResult> buildDependencyGraph(ResolvedComponentResult result, Set<Conflict> conflicts) {
     MutableGraph<ResolvedComponentResult> toReturn = GraphBuilder.directed().build();
     Set<ComponentIdentifier> visited = new HashSet<>();
-    amendDependencyGraph(toReturn, visited, result);
+    amendDependencyGraph(toReturn, visited, conflicts, result);
     return ImmutableGraph.copyOf(toReturn);
   }
 
   private void amendDependencyGraph(
       MutableGraph<ResolvedComponentResult> toReturn,
       Set<ComponentIdentifier> visited,
+      Set<Conflict> conflicts,
       ResolvedComponentResult result) {
     ComponentIdentifier id = result.getId();
 
@@ -177,9 +185,16 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
           if (selected.getId() instanceof ModuleComponentIdentifier) {
             toReturn.addNode(selected);
             toReturn.putEdge(result, selected);
+
+            if (!resolved.getRequested().matchesStrictly(selected.getId())) {
+              Conflict conflict = new Conflict(
+                      new Coordinates(selected.getId().toString()),
+                      new Coordinates(resolved.getRequested().toString()));
+              conflicts.add(conflict);
+            }
           }
 
-          amendDependencyGraph(toReturn, visited, selected);
+          amendDependencyGraph(toReturn, visited, conflicts, selected);
         } else {
           System.err.println(String.format("Cannot resolve %s (class %s)", dep, dep.getClass()));
         }

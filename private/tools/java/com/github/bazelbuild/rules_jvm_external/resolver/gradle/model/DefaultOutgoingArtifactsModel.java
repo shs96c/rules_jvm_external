@@ -21,13 +21,19 @@ import java.util.Set;
 
 public class DefaultOutgoingArtifactsModel implements OutgoingArtifactsModel, Serializable {
   private final Map<String, Set<String>> artifacts;
+  private final Map<String, String> conflicts;
 
-  public DefaultOutgoingArtifactsModel(Map<String, Set<String>> artifacts) {
-    this.artifacts = artifacts;
+  public DefaultOutgoingArtifactsModel(Map<String, Set<String>> artifacts, Map<String, String> conflicts) {
+    this.artifacts = Map.copyOf(artifacts);
+    this.conflicts = Map.copyOf(conflicts);
   }
 
   @Override
   public Map<String, Set<String>> getArtifacts() {
     return artifacts;
+  }
+
+  public Map<String, String> getConflicts() {
+    return conflicts;
   }
 }

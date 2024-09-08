@@ -4,6 +4,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.resolver.Artifact;
+import com.github.bazelbuild.rules_jvm_external.resolver.Conflict;
 import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionRequest;
 import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionResult;
 import com.github.bazelbuild.rules_jvm_external.resolver.Resolver;
@@ -38,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
@@ -130,7 +133,11 @@ public class GradleResolver implements Resolver {
       }
     }
 
-    return new ResolutionResult(ImmutableGraph.copyOf(graph), Set.of());
+    Set<Conflict> conflicts = model.getConflicts().entrySet().stream()
+            .map(e -> new Conflict(new Coordinates(e.getValue()), new Coordinates(e.getKey())))
+            .collect(Collectors.toSet());
+
+    return new ResolutionResult(ImmutableGraph.copyOf(graph), conflicts);
   }
 
   private Path createTemporaryProject(ResolutionRequest request) throws IOException {
