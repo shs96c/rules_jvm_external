@@ -174,6 +174,15 @@ public class GradleResolver implements Resolver {
     }
     contents.append("}\n\n");
 
+    // Add any global exclusions
+    if (!request.getGlobalExclusions().isEmpty()) {
+      contents.append("configurations.all {\n");
+      request.getGlobalExclusions().forEach(e -> {
+        contents.append("  exclude group: '").append(e.getGroupId()).append("', module: '").append(e.getArtifactId()).append("'\n");
+      });
+      contents.append("}\n\n");
+    }
+
     if (System.getenv("RJE_VERBOSE") != null) {
       listener.onEvent(new LogEvent("gradle", contents.toString(), null));
     }
