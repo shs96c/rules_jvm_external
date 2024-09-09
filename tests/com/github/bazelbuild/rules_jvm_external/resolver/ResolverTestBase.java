@@ -332,7 +332,7 @@ public abstract class ResolverTestBase {
 
     Graph<Coordinates> resolved = resolver.resolve(request).getResolution();
 
-    assertEquals(resolved.nodes(), Set.of(coords));
+    assertEquals(Set.of(coords), resolved.nodes());
   }
 
   @Test

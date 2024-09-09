@@ -40,11 +40,11 @@ import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.ModuleVersionSelector;
 import org.gradle.api.artifacts.ResolvableDependencies;
+import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.ComponentResult;
 import org.gradle.api.artifacts.result.DependencyResult;
-import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.artifacts.result.ResolvedVariantResult;
@@ -66,9 +66,6 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     Configuration defaultConfig = configs.getByName("default");
     ResolvableDependencies resolvableDeps = defaultConfig.getIncoming();
 
-    Set<ResolvedArtifactResult> resolvedArtifactResults =
-        resolvableDeps.getArtifacts().getResolvedArtifacts().get();
-
     // Begin by constructing the possible graph of what we want. Gradle will
     // resolve things at the "module" level (`groupId:artifactId`) and will
     // "loose" results that only differ by classifier. Because of this, the
@@ -86,8 +83,9 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     // We now rely on the downloaded files to be named following the default
     // maven format so that we can calculate the coordinates that they would
     // represent.
-    Map<ComponentIdentifier, Set<File>> knownFiles =
-        collectDownloadedFiles(resolvedArtifactResults);
+    Set<ResolvedArtifact> allResolvedArtifacts =
+        defaultConfig.getResolvedConfiguration().getLenientConfiguration().getArtifacts();
+    Map<ComponentIdentifier, Set<File>> knownFiles = collectDownloadedFiles(allResolvedArtifacts);
     Set<Coordinates> remaining = removeAlreadyIncludedFiles(graph, knownFiles);
 
     Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, remaining);
@@ -100,11 +98,13 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     return new DefaultOutgoingArtifactsModel(artifacts, convertedConflicts);
   }
 
-  private Map<ComponentIdentifier, Set<File>> collectDownloadedFiles(
-      Set<ResolvedArtifactResult> result) {
+  private Map<ComponentIdentifier, Set<File>> collectDownloadedFiles(Set<ResolvedArtifact> result) {
     Map<ComponentIdentifier, Set<File>> knownFiles = new HashMap<>();
 
-    for (ResolvedArtifactResult artifactResult : result) {
+    for (ResolvedArtifact artifactResult : result) {
+      if (artifactResult.getFile() == null) {
+        continue;
+      }
       ComponentIdentifier id = artifactResult.getId().getComponentIdentifier();
       knownFiles.computeIfAbsent(id, ignored -> new HashSet<>()).add(artifactResult.getFile());
     }
