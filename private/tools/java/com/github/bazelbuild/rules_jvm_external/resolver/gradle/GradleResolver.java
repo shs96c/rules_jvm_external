@@ -3,7 +3,6 @@ package com.github.bazelbuild.rules_jvm_external.resolver.gradle;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
-import com.github.bazelbuild.rules_jvm_external.resolver.Artifact;
 import com.github.bazelbuild.rules_jvm_external.resolver.Conflict;
 import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionRequest;
 import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionResult;
@@ -14,7 +13,6 @@ import com.github.bazelbuild.rules_jvm_external.resolver.events.PhaseEvent;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.model.OutgoingArtifactsModel;
 import com.github.bazelbuild.rules_jvm_external.resolver.gradle.plugin.CustomModelInjectionPlugin;
 import com.github.bazelbuild.rules_jvm_external.resolver.netrc.Netrc;
-import com.google.common.base.Strings;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
@@ -26,7 +24,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -141,70 +138,15 @@ public class GradleResolver implements Resolver {
   }
 
   private Path createTemporaryProject(ResolutionRequest request) throws IOException {
-    StringBuilder contents = new StringBuilder();
-    contents.append("repositories {\n");
-    for (int i = 0; i < request.getRepositories().size(); i++) {
-      URI uri = request.getRepositories().get(0);
-      contents.append("  maven").append(" {\n    url = uri(\"").append(uri).append("\")\n");
-      if ("http".equals(uri.getScheme())) {
-        contents.append("    allowInsecureProtocol = true\n");
-      }
-      Netrc.Credential credential =
-          netrc.credentials().entrySet().stream()
-              .filter(e -> e.getKey().equals(uri.getHost()))
-              .findFirst()
-              .map(Map.Entry::getValue)
-              .orElse(netrc.defaultCredential());
-      if (credential != null) {
-        contents.append("    credentials {\n");
-        contents.append("        username \"").append(credential.login()).append("\"\n");
-        contents.append("        password \"").append(credential.password()).append("\"\n");
-        contents.append("    }\n");
-      }
 
-      contents.append("  }\n");
-    }
-    contents.append("}\n\n");
-
-    contents.append("dependencies {\n");
-    for (Artifact bom : request.getBoms()) {
-      // We need to remove the `pom` classifier if gradle is going to be happy
-      Coordinates defaultCoords = bom.getCoordinates().setClassifier("jar").setExtension(null);
-      contents
-          .append(
-              toGradleDependencyNotation(
-                  "implementation platform", new Artifact(defaultCoords, bom.getExclusions())))
-          .append("\n");
-    }
-
-    for (Artifact dep : request.getDependencies()) {
-      contents.append(toGradleDependencyNotation("implementation", dep)).append("\n");
-    }
-    contents.append("}\n\n");
-
-    // Add any global exclusions
-    if (!request.getGlobalExclusions().isEmpty()) {
-      contents.append("configurations.all {\n");
-      request
-          .getGlobalExclusions()
-          .forEach(
-              e -> {
-                contents
-                    .append("  exclude group: '")
-                    .append(e.getGroupId())
-                    .append("', module: '")
-                    .append(e.getArtifactId())
-                    .append("'\n");
-              });
-      contents.append("}\n\n");
-    }
+    String contents = new GradleBuildFile(netrc, request).render();
 
     if (System.getenv("RJE_VERBOSE") != null) {
-      listener.onEvent(new LogEvent("gradle", contents.toString(), null));
+      listener.onEvent(new LogEvent("gradle", contents, null));
     }
 
     Path root = Files.createTempDirectory("rje_resolver");
-    Files.write(root.resolve("build.gradle"), contents.toString().getBytes(UTF_8));
+    Files.write(root.resolve("build.gradle"), contents.getBytes(UTF_8));
 
     Files.write(
         root.resolve("gradle.properties"),
@@ -212,42 +154,6 @@ public class GradleResolver implements Resolver {
             .getBytes(UTF_8));
 
     return root;
-  }
-
-  private String toGradleDependencyNotation(String type, Artifact artifact) {
-    Coordinates coords = artifact.getCoordinates();
-    StringBuilder toReturn =
-        new StringBuilder(type)
-            .append("(")
-            .append("'")
-            .append(coords.getGroupId())
-            .append(":")
-            .append(coords.getArtifactId());
-    if (!Strings.isNullOrEmpty(coords.getVersion())) {
-      toReturn.append(":").append(coords.getVersion());
-    }
-    if (!Strings.isNullOrEmpty(coords.getClassifier())) {
-      toReturn.append(":").append(coords.getClassifier());
-    }
-    if (!Strings.isNullOrEmpty(coords.getExtension()) && !"jar".equals(coords.getExtension())) {
-      toReturn.append("@").append(coords.getExtension());
-    }
-    toReturn.append("')");
-
-    if (!artifact.getExclusions().isEmpty()) {
-      toReturn.append(" {\n");
-      for (Coordinates exclusion : artifact.getExclusions()) {
-        toReturn
-            .append("    exclude group: '")
-            .append(exclusion.getGroupId())
-            .append("', module: '")
-            .append(exclusion.getArtifactId())
-            .append("'\n");
-      }
-      toReturn.append("  }");
-    }
-
-    return toReturn.toString();
   }
 
   private File copyInitScript() throws IOException, URISyntaxException {
@@ -258,7 +164,8 @@ public class GradleResolver implements Resolver {
     String name = "/" + getClass().getPackageName().replace('.', '/') + "/init.gradle";
 
     try (BufferedReader reader =
-        new BufferedReader(new InputStreamReader(getClass().getResourceAsStream(name)))) {
+        new BufferedReader(
+            new InputStreamReader(Objects.requireNonNull(getClass().getResourceAsStream(name))))) {
       reader
           .lines()
           .forEach(
