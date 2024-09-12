@@ -86,6 +86,7 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
     Set<ResolvedArtifact> allResolvedArtifacts =
         defaultConfig.getResolvedConfiguration().getLenientConfiguration().getArtifacts();
     Map<ComponentIdentifier, Set<File>> knownFiles = collectDownloadedFiles(allResolvedArtifacts);
+
     Set<Coordinates> remaining = removeAlreadyIncludedFiles(graph, knownFiles);
 
     Map<String, Set<String>> artifacts = reconstructDependencyGraph(project, graph, remaining);
@@ -205,7 +206,9 @@ public class OutgoingArtifactsModelBuilder implements ToolingModelBuilder {
   }
 
   private Map<String, Set<String>> reconstructDependencyGraph(
-      Project project, Graph<ResolvedComponentResult> graph, Set<Coordinates> orphaned) {
+          Project project,
+          Graph<ResolvedComponentResult> graph,
+          Set<Coordinates> orphaned) {
     // Get the list of dependencies that the user actually asked for
     Set<ExternalModuleDependency> requestedDeps = new HashSet<>();
     for (Configuration config : project.getConfigurations()) {

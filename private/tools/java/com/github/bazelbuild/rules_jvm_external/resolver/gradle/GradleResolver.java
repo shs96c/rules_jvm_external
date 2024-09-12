@@ -138,8 +138,9 @@ public class GradleResolver implements Resolver {
   }
 
   private Path createTemporaryProject(ResolutionRequest request) throws IOException {
-
     String contents = new GradleBuildFile(netrc, request).render();
+
+    request.getDependencies().forEach(a -> System.err.printf("%s:%s -> %s%n", a.getCoordinates().getGroupId(), a.getCoordinates().getArtifactId(), a.getCoordinates().getClassifier()));
 
     if (System.getenv("RJE_VERBOSE") != null) {
       listener.onEvent(new LogEvent("gradle", contents, null));
