@@ -643,8 +643,7 @@ public abstract class ResolverTestBase {
   public void shouldConsolidateDifferentClassifierVersionsForADependency() {
     Coordinates nettyCoords = new Coordinates("io.netty:netty-tcnative-boringssl-static");
 
-    Coordinates nettyOsxBom =
-        new Coordinates("io.netty:netty-tcnative-boringssl-static:osx-aarch_64:2.0.47.Final");
+    Coordinates nettyOsxBom = new Coordinates("io.netty:netty-tcnative-boringssl-static:osx-aarch_64:2.0.47.Final");
     Dependency dependencyOsx = new Dependency();
     dependencyOsx.setGroupId(nettyCoords.getGroupId());
     dependencyOsx.setArtifactId(nettyCoords.getArtifactId());

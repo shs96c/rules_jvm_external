@@ -115,9 +115,9 @@ http_archive(
     name = "gradle",
     add_prefix = "gradle-bin",
     build_file = "//:gradle.BUILD.bazel",
-    sha256 = "bed1da33cca0f557ab13691c77f38bb67388119e4794d113e051039b80af9bb1",
-    strip_prefix = "gradle-7.6.4",
-    url = "https://services.gradle.org/distributions/gradle-7.6.4-bin.zip",
+    integrity = "sha256-FUH6NlmeEoVxQEZfPJGpdAm0USUBwm+WMfsRPjksW9E=",
+    strip_prefix = "gradle-8.10.1",
+    url = "https://services.gradle.org/distributions/gradle-8.10.1-bin.zip",
 )
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")

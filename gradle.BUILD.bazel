@@ -11,48 +11,9 @@ java_library(
     ],
 )
 
-GRADLE_VERSION = "7.6.4"
-PREFIX = "gradle-bin/lib/"
-
-KOTLIN_VERSION = "1.7.10"
-NATIVE_VERSION = "0.22-milestone-25"
-
-MODULES = [
-    "commons-lang-2.6.jar",
-    "gradle-base-annotations-%s.jar" % GRADLE_VERSION,
-    "gradle-base-services-%s.jar" % GRADLE_VERSION,
-    "gradle-build-operations-%s.jar" % GRADLE_VERSION,
-    "gradle-core-%s.jar" % GRADLE_VERSION,
-    "gradle-core-api-%s.jar" % GRADLE_VERSION,
-    "gradle-enterprise-logging-%s.jar" % GRADLE_VERSION,
-    "gradle-enterprise-workers-%s.jar" % GRADLE_VERSION,
-    "gradle-logging-%s.jar" % GRADLE_VERSION,
-    "gradle-logging-api-%s.jar" % GRADLE_VERSION,
-    "gradle-messaging-%s.jar" % GRADLE_VERSION,
-    "gradle-tooling-api-%s.jar" % GRADLE_VERSION,
-]
-
-RUNTIME_DEPS = [PREFIX + m for m in MODULES]
-
-[
-    java_import(
-        name = jar.split("/")[-1],
-        jars = [jar],
-    )
-    for jar in RUNTIME_DEPS
-]
-
-java_library(
+java_import(
     name = "gradle-runtime-jars",
-    runtime_deps = [jar.split("/")[-1] for jar in RUNTIME_DEPS],
-    exports = [jar.split("/")[-1] for jar in RUNTIME_DEPS],
-)
-
-jvm_import(
-    name = "gradle-tooling-api",
-    jars = [
-        "lib/gradle-tooling-api-%s.jar" % GRADLE_VERSION,
-    ],
+    jars = glob(["gradle-bin/lib/*.jar"]),
     visibility = ["//visibility:public"],
 )
 
