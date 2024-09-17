@@ -5,10 +5,7 @@ import com.github.bazelbuild.rules_jvm_external.resolver.Artifact;
 import com.github.bazelbuild.rules_jvm_external.resolver.ResolutionRequest;
 import com.github.bazelbuild.rules_jvm_external.resolver.netrc.Netrc;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
-
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 

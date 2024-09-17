@@ -39,7 +39,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
-import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 
 @AutoBazelRepository
 public class GradleResolver implements Resolver {
@@ -71,9 +70,9 @@ public class GradleResolver implements Resolver {
   private ResolutionResult resolveAndMaybeThrow(ResolutionRequest request)
       throws IOException, URISyntaxException {
     listener.onEvent(new PhaseEvent("Initialising gradle connector"));
+
     GradleConnector connector = GradleConnector.newConnector();
     connector.useGradleUserHomeDir(request.getUserHome().toFile());
-    ((DefaultGradleConnector) connector).embedded(true);
 
     Runfiles.Preloaded runfiles = Runfiles.preload();
     String gradleDir =
@@ -93,13 +92,18 @@ public class GradleResolver implements Resolver {
     ProjectConnection connection = connector.connect();
 
     List<String> args = new ArrayList<>();
+    args.addAll(List.of("--gradle-user-home", request.getUserHome().toAbsolutePath().toString()));
     args.addAll(List.of("--init-script", copyInitScript().getAbsolutePath()));
     args.add("--warning-mode=none"); // Don't announce to the world all the problems we find
+    args.add("--configure-on-demand"); // Slightly improves start up speed
     args.add("-Dslf4j.internal.verbosity=ERROR");
-    args.add("-Dorg.gradle.daemon.idletimeout=1");
-    if (System.getenv("RJE_DEBUG") != null) {
-      args.addAll(List.of("-Dorg.gradle.debug=true", "-Dorg.gradle.suspend=true"));
-    }
+    args.add("--debug");
+    args.add("--no-scan");
+    args.add("--no-watch-fs");
+    args.addAll(
+        List.of(
+            "--project-cache-dir",
+            request.getUserHome().resolve(".gradle").toAbsolutePath().toString()));
 
     OutgoingArtifactsModel model =
         connection
@@ -140,7 +144,15 @@ public class GradleResolver implements Resolver {
   private Path createTemporaryProject(ResolutionRequest request) throws IOException {
     String contents = new GradleBuildFile(netrc, request).render();
 
-    request.getDependencies().forEach(a -> System.err.printf("%s:%s -> %s%n", a.getCoordinates().getGroupId(), a.getCoordinates().getArtifactId(), a.getCoordinates().getClassifier()));
+    request
+        .getDependencies()
+        .forEach(
+            a ->
+                System.err.printf(
+                    "%s:%s -> %s%n",
+                    a.getCoordinates().getGroupId(),
+                    a.getCoordinates().getArtifactId(),
+                    a.getCoordinates().getClassifier()));
 
     if (System.getenv("RJE_VERBOSE") != null) {
       listener.onEvent(new LogEvent("gradle", contents, null));

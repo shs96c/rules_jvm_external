@@ -314,16 +314,16 @@ public abstract class ResolverTestBase {
     Path repo = MavenRepo.create().add(coords).getPath();
 
     Map<String, Object> args =
-            Map.of(
-                    "repositories",
-                    List.of(repo.toUri().toString()),
-                    "artifacts",
-                    List.of(
-                            Map.of(
-                                    "artifact", "artifact",
-                                    "group", "com.example",
-                                    "version", "7.8.9",
-                                    "classifier", "jdk15")));
+        Map.of(
+            "repositories",
+            List.of(repo.toUri().toString()),
+            "artifacts",
+            List.of(
+                Map.of(
+                    "artifact", "artifact",
+                    "group", "com.example",
+                    "version", "7.8.9",
+                    "classifier", "jdk15")));
     Path argsFile = tempFolder.newFolder("argsdir").toPath().resolve("config.json");
     Files.write(argsFile, new Gson().toJson(args).getBytes(UTF_8));
 
@@ -643,7 +643,8 @@ public abstract class ResolverTestBase {
   public void shouldConsolidateDifferentClassifierVersionsForADependency() {
     Coordinates nettyCoords = new Coordinates("io.netty:netty-tcnative-boringssl-static");
 
-    Coordinates nettyOsxBom = new Coordinates("io.netty:netty-tcnative-boringssl-static:osx-aarch_64:2.0.47.Final");
+    Coordinates nettyOsxBom =
+        new Coordinates("io.netty:netty-tcnative-boringssl-static:osx-aarch_64:2.0.47.Final");
     Dependency dependencyOsx = new Dependency();
     dependencyOsx.setGroupId(nettyCoords.getGroupId());
     dependencyOsx.setArtifactId(nettyCoords.getArtifactId());
