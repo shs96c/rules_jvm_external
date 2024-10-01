@@ -114,11 +114,14 @@ override = tag_class(
 def maven_impl(mctx):
     root_modules = gather_modules(mctx, True)
     non_root_modules = gather_modules(mctx, False)
-    merged_modules = merge_modules(root_modules, non_root_modules)
+    merged_workspaces = merge_modules(root_modules, non_root_modules)
 
-    print(merged_modules)
+    for workspace in merged_workspaces:
+        owning_modules = workspace["owning_modules"]
+        if len(owning_modules) > 1:
+            print("`%s` is declared in more than one module:" % workspace["name"], ", ".join(sorted(owning_modules)))
 
-    pass
+    print("Fin")
 
 def gather_modules(mctx, only_root):
     # Returns a data structure like:
@@ -188,6 +191,7 @@ _APPEND = [
 _ROOT_MODULE_APPEND = [
     "artifacts",
     "boms",
+    "owning_modules",
 ]
 
 def merge_modules(root_modules, non_root_modules):
@@ -230,7 +234,7 @@ def merge_modules(root_modules, non_root_modules):
 
             merged[current["name"]] = current
 
-    return merged
+    return merged.values()
 
 maven = module_extension(
     maven_impl,
