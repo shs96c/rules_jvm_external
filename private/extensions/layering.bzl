@@ -114,14 +114,30 @@ override = tag_class(
 def maven_impl(mctx):
     root_modules = gather_modules(mctx, True)
     non_root_modules = gather_modules(mctx, False)
-
-    merged_modules = merge_modules([m["name"] for m in root_modules.values()], non_root_modules)
-    # The dict returned by `merge_modules` should match the values of `root_modules`
-    merged_modules = override_values(root_modules.values(), merged_modules)
+    merged_modules = merge_modules(root_modules, non_root_modules)
 
     pass
 
 def gather_modules(mctx, only_root):
+    # Returns a data structure like:
+    #
+    # {
+    #     "rules_jvm_external": [
+    #         {
+    #             "name": "maven",
+    #             "artifacts": [],
+    #         },
+    #         {
+    #             "name": "something_else",
+    #             "artifacts": [],
+    #         },
+    #     ],
+    # }
+    #
+    # We can do this because we know each `install` tag can only appear once
+    # in a given module, and we'll have merged all the tag classes once we've
+    # finished processing everything.
+
     module_to_values = {}
 
     for module in mctx.modules:
@@ -139,16 +155,17 @@ def process_tags(module):
         value = structs.to_dict(install)
         if maven_install_name_to_values.get("name", None):
             fail("Only one `install` with a given `name` can be in a single module file. Conflicting name was:", value["name"])
+        value["owning_modules"] = [module.name]
         maven_install_name_to_values.update({value["name"]: value})
 
     for artifact in module.tags.artifact:
         value = structs.to_dict(artifact)
         name = value.pop("name")
 
-        workspace = maven_install_name_to_values.get(name, {"artifacts": []})
+        workspace = maven_install_name_to_values.get(name, {"artifacts": [], "owning_modules": [module.name]})
         workspace["artifacts"] = workspace["artifacts"] + [value]
 
-    return maven_install_name_to_values
+    return maven_install_name_to_values.values()
 
 _LOGICAL_OR = [
     "fetch_javadoc",
@@ -162,39 +179,37 @@ _APPEND = [
     "artifacts",
     "boms",
     "excluded_artifats",
+    "owning_modules",
     "repositories",
 ]
 
-def merge_modules(root_module_names, modules):
+def merge_modules(root_modules, modules):
     merged = {}
 
-    for (module_name, module) in modules.items():
-        current = merged.get(module["name"], {})
+    root_workspace_names = []
+    for module in root_modules.values():
+        for aggregated_tags in module:
+            root_workspace_names.append(aggregated_tags["name"])
 
-        for (key, value) in module.items():
-            if key in _LOGICAL_OR:
-                current[key] = current.get(key, False) or value
-            elif key in _APPEND:
-                current[key] = current.get(key, []) + value
-            else:
-                if key in merged.keys() and value != merged[key] and current["name"] not in root_module_names:
-                    fail("More than one module declares a value for ", key, "most recently seen in", module_name)
-                current[key] = value
+    print(root_workspace_names)
 
-        merged[module["name"]] = current
+    #    for (module_name, aggregated_tags) in modules.items():
+    #        for workspace in aggregated_tags:
+    #            current = merged.get(workspace["name"], {})
+    #
+    #            for (key, value) in workspace.items():
+    #                if key in _LOGICAL_OR:
+    #                    current[key] = current.get(key, False) or value
+    #                elif key in _APPEND:
+    #                    current[key] = current.get(key, []) + value
+    #                else:
+    #                    if key in merged.keys() and value != merged[key] and current["name"] not in root_module_names:
+    #                        fail("More than one module declares a value for ", key, "most recently seen in", module_name)
+    #                    current[key] = value
+    #
+    #            merged[current["name"]] = current
 
     return merged
-
-def override_values(root_modules, merged_modules):
-    final_modules = {}
-
-    for module in root_modules:
-        # Bail out quickly if we need to
-        if not module.name in merged_modules.keys():
-            final_modules[module.name] = module
-            continue
-
-    pass
 
 maven = module_extension(
     maven_impl,

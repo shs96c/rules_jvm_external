@@ -1,0 +1,39 @@
+module(
+    name = "layering_root",
+    version = "0.0",
+)
+
+bazel_dep(name = "rules_jvm_external", version = "0.0")
+local_path_override(
+    module_name = "rules_jvm_external",  # matches the name of the `bazel_dep`
+    path = "../../..",
+)
+
+bazel_dep(name = "layering_child1", version = "0.0")
+local_path_override(
+    module_name = "layering_child1",
+    path = "../child1",
+)
+
+bazel_dep(name = "layering_child2", version = "0.0")
+local_path_override(
+    module_name = "layering_child2",
+    path = "../child2",
+)
+
+maven = use_extension("@rules_jvm_external//private/extensions:layering.bzl", "maven")
+maven.install(
+    name = "pristine",
+    artifacts = [
+        "com.google.guava:guava:31.1-jre",
+        "org.hamcrest:hamcrest-core:2.1",
+    ],
+)
+maven.install(
+    artifacts = [
+        "com.google.code.gson:gson:2.9.0",
+        "com.google.googlejavaformat:google-java-format:1.22.0",
+        "com.google.guava:guava:33.2.1-jre",
+    ],
+)
+use_repo(maven, "maven", "pristine")
