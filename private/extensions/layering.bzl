@@ -116,6 +116,8 @@ def maven_impl(mctx):
     non_root_modules = gather_modules(mctx, False)
     merged_modules = merge_modules(root_modules, non_root_modules)
 
+    print(merged_modules)
+
     pass
 
 def gather_modules(mctx, only_root):
@@ -183,7 +185,12 @@ _APPEND = [
     "repositories",
 ]
 
-def merge_modules(root_modules, modules):
+_ROOT_MODULE_APPEND = [
+    "artifacts",
+    "boms",
+]
+
+def merge_modules(root_modules, non_root_modules):
     merged = {}
 
     root_workspace_names = []
@@ -191,23 +198,37 @@ def merge_modules(root_modules, modules):
         for aggregated_tags in module:
             root_workspace_names.append(aggregated_tags["name"])
 
-    print(root_workspace_names)
+    # To start with, make sure we have all the non-root modules in `merged`
+    for (module_name, aggregated_tags) in non_root_modules.items():
+        for workspace in aggregated_tags:
+            current = merged.get(workspace["name"], {})
 
-    #    for (module_name, aggregated_tags) in modules.items():
-    #        for workspace in aggregated_tags:
-    #            current = merged.get(workspace["name"], {})
-    #
-    #            for (key, value) in workspace.items():
-    #                if key in _LOGICAL_OR:
-    #                    current[key] = current.get(key, False) or value
-    #                elif key in _APPEND:
-    #                    current[key] = current.get(key, []) + value
-    #                else:
-    #                    if key in merged.keys() and value != merged[key] and current["name"] not in root_module_names:
-    #                        fail("More than one module declares a value for ", key, "most recently seen in", module_name)
-    #                    current[key] = value
-    #
-    #            merged[current["name"]] = current
+            for (key, value) in workspace.items():
+                if key in _LOGICAL_OR:
+                    current[key] = current.get(key, False) or value
+                elif key in _APPEND:
+                    current[key] = current.get(key, []) + value
+                else:
+                    if key in merged.keys() and value != merged[key] and current["name"] not in root_workspace_names:
+                        fail("More than one module declares a value for ", key, "most recently seen in", module_name)
+                    current[key] = value
+
+            merged[current["name"]] = current
+
+    # Now we have that, repeat the process, but for the `root_modules`
+    for (module_name, aggregated_tags) in root_modules.items():
+        for workspace in aggregated_tags:
+            current = merged.get(workspace["name"], {})
+
+            for (key, value) in workspace.items():
+                if key == "generate_compat_repositories":
+                    current[key] = current.get(key, False) or value
+                elif key in _ROOT_MODULE_APPEND:
+                    current[key] = current.get(key, []) + value
+                else:
+                    current[key] = value
+
+            merged[current["name"]] = current
 
     return merged
 
