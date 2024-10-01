@@ -163,6 +163,29 @@ local_path_override(
     path = "tests/integration/bzlmod_lock_files",
 )
 
+dev_layer = use_extension(
+    "//private/extensions:layering.bzl",
+    "maven",
+    dev_dependency = True,
+)
+dev_layer.install(
+    name = "maven2",
+    artifacts = [
+        "com.google.guava:guava:31.1-jre",
+        "org.hamcrest:hamcrest-core:2.1",
+    ],
+)
+dev_layer.artifact(
+    name = "maven2",
+    artifact = "guava",
+    group = "com.google.guava",
+    version = "31.1-jre",
+)
+use_repo(
+    dev_layer,
+    "maven2",
+)
+
 dev_maven = use_extension(
     ":extensions.bzl",
     "maven",
