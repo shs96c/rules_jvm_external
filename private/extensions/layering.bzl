@@ -1,6 +1,5 @@
 load("@bazel_skylib//lib:structs.bzl", "structs")
 load("//:specs.bzl", "parse")
-load("//private/lib:coordinates.bzl", "unpack_coordinates")
 load("//private/rules:coursier.bzl", "DEFAULT_AAR_IMPORT_LABEL", "coursier_fetch", "pinned_coursier_fetch")
 
 DEFAULT_REPOSITORIES = [
@@ -235,6 +234,9 @@ def merge_modules(root_modules, non_root_modules):
             merged[current["name"]] = current
 
     return merged.values()
+
+def amend_artifacts(warning, artifacts, artifact):
+    to_compare = parse.parse_artifact_spec_list([artifact])[0]
 
 maven = module_extension(
     maven_impl,
