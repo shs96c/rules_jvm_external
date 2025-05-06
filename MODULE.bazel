@@ -48,7 +48,24 @@ bazel_dep(
 remote_android_extensions = use_extension("@bazel_tools//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
 use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
 
-maven = use_extension(":extensions.bzl", "maven")
+#maven2 = use_extension("//extensions:maven.bzl", "maven")
+#maven2.install(
+#    artifacts = [
+#        "org.junit.jupiter:junit-jupiter-api",
+#    ],
+#    boms = [
+#        "org.junit:junit-bom:5.12.2",
+#    ],
+#)
+#maven2.artifact(
+#    artifact = "jffi",
+#    classifier = "native",
+#    group = "com.github.jnr",
+#    version = "1.3.2",
+#)
+
+#maven = use_extension(":extensions.bzl", "maven")
+maven = use_extension("//extensions:extensions.bzl", "maven")
 
 _MAVEN_VERSION = "3.9.8"
 
