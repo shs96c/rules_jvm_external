@@ -201,6 +201,49 @@ _ERROR_ATTRS = [
     "version_conflict_policy",
 ]
 
+def get_root_module(mctx):
+    all_possible_roots = [mod for mod in mctx.modules if mod.is_root]
+    if len(all_possible_roots):
+        return all_possible_roots[0]
+    return None
+
+def gather_module(mod):
+    seen_names = []
+    for install in mod.tags.install:
+        if install.name in seen_names:
+            fail("Only one `install` tag with the name", install.name, "can be declared in a single module file")
+        seen_names.append(install.name)
+
+        as_dict = structs.to_dict(install)
+        as_dict["artifacts"] = explode(as_dict["artifacts"])
+        as_dict["boms"] = explode(as_dict["boms"])
+        as_dict["errors"] = []
+
+        collection[install.name] = merge_install_tags(collection.get(install.name, _EMPTY_MODULE), as_dict, mod.is_root)
+
+        add_to_extension_deps(mctx, install, direct_deps, direct_dev_deps)
+
+    for artifact in mod.tags.artifact:
+        params = collection.get(artifact.name, _EMPTY_MODULE)
+        params["artifacts"] = params["artifacts"] + [
+            struct(
+                group = artifact.group,
+                artifact = artifact.artifact,
+                version = artifact.version,
+                packaging = artifact.packaging,
+                classifier = artifact.classifier,
+                force_version = artifact.force_version,
+                neverlink = artifact.neverlink,
+                testonly = artifact.testonly,
+                exclusions = artifact.exclusions,
+            ),
+        ]
+        collection[artifact.name] = params
+
+        add_to_extension_deps(mctx, artifact, direct_deps, direct_dev_deps)
+
+    validate_single_module()
+
 def merge_install_tags(existing, to_add, to_add_is_from_root_module):
     to_return = {} | existing
 
@@ -241,6 +284,20 @@ def maven_impl(mctx):
     direct_deps = []
     direct_dev_deps = []
 
+    # For each module, gather together all the deps and overrides that are
+    # requested, and then check the invariants or issue warnings (eg. for
+    # duplicate deps). Once that's done, merge each module that's not the
+    # root module together. Finally, merge the root module, allowing that
+    # to override particular dependencies or overrides.
+    #
+    # Because we don't want to emit spurious warnings when the root module
+    # has overridden a dependency or override, we need to gather the
+    # workspaces from the root module first.
+
+    root_module = get_root_module(mctx)
+    if root_module:
+        gather_module(root_module)
+
     for mod in mctx.modules:
         collection = root_modules if mod.is_root else non_root_modules
 
@@ -277,6 +334,8 @@ def maven_impl(mctx):
             collection[artifact.name] = params
 
             add_to_extension_deps(mctx, artifact, direct_deps, direct_dev_deps)
+
+        validate_single_module()
 
     for mod in (root_modules | non_root_modules).values():
         if len(mod["errors"]):
