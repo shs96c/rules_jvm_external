@@ -266,6 +266,29 @@ def _deduplicate_artifacts_with_root_priority(root_artifacts, non_root_artifacts
 
     return root_artifacts + filtered_non_root
 
+def _amend_artifact(original_artifact, amend):
+    """Apply amendments to an artifact struct, returning a new amended struct."""
+
+    # Handle exclusions by merging with existing ones
+    existing_exclusions = getattr(original_artifact, "exclusions", []) or []
+    final_exclusions = existing_exclusions
+    if amend.exclusions:
+        new_exclusions = _add_exclusions(amend.exclusions)
+        final_exclusions = existing_exclusions + new_exclusions
+
+    # Create new struct with amendments applied
+    return struct(
+        group = original_artifact.group,
+        artifact = original_artifact.artifact,
+        version = getattr(original_artifact, "version", None),
+        packaging = getattr(original_artifact, "packaging", None),
+        classifier = getattr(original_artifact, "classifier", None),
+        force_version = amend.force_version if amend.force_version else getattr(original_artifact, "force_version", None),
+        neverlink = amend.neverlink if amend.neverlink else getattr(original_artifact, "neverlink", None),
+        testonly = amend.testonly if amend.testonly else getattr(original_artifact, "testonly", None),
+        exclusions = final_exclusions if final_exclusions else None,
+    )
+
 def _coordinates_match(artifact, coordinates):
     """Check if an artifact's `group` and `artifact` matches the given coordinate string."""
     coords = unpack_coordinates(coordinates)
@@ -354,49 +377,7 @@ def _process_module_tags(mctx, mod, target_repos, repo_name_2_module_name):
         amended = False
         for i, artifact in enumerate(artifacts):
             if _coordinates_match(artifact, amend.coordinates):
-                # Create a new artifact struct with amendments
-                amended_artifact = struct(
-                    group = artifact.group,
-                    artifact = artifact.artifact,
-                    version = getattr(artifact, "version", None),
-                    packaging = getattr(artifact, "packaging", None),
-                    classifier = getattr(artifact, "classifier", None),
-                    force_version = amend.force_version if amend.force_version else getattr(artifact, "force_version", None),
-                    neverlink = amend.neverlink if amend.neverlink else getattr(artifact, "neverlink", None),
-                    testonly = amend.testonly if amend.testonly else getattr(artifact, "testonly", None),
-                    exclusions = None,
-                )
-
-                # Handle exclusions separately as they need to be merged
-                existing_exclusions = getattr(artifact, "exclusions", []) or []
-                if amend.exclusions:
-                    new_exclusions = _add_exclusions(amend.exclusions)
-                    all_exclusions = existing_exclusions + new_exclusions
-                    amended_artifact = struct(
-                        group = amended_artifact.group,
-                        artifact = amended_artifact.artifact,
-                        version = amended_artifact.version,
-                        packaging = amended_artifact.packaging,
-                        classifier = amended_artifact.classifier,
-                        force_version = amended_artifact.force_version,
-                        neverlink = amended_artifact.neverlink,
-                        testonly = amended_artifact.testonly,
-                        exclusions = all_exclusions,
-                    )
-                else:
-                    amended_artifact = struct(
-                        group = amended_artifact.group,
-                        artifact = amended_artifact.artifact,
-                        version = amended_artifact.version,
-                        packaging = amended_artifact.packaging,
-                        classifier = amended_artifact.classifier,
-                        force_version = amended_artifact.force_version,
-                        neverlink = amended_artifact.neverlink,
-                        testonly = amended_artifact.testonly,
-                        exclusions = existing_exclusions if existing_exclusions else None,
-                    )
-
-                artifacts[i] = amended_artifact
+                artifacts[i] = _amend_artifact(artifact, amend)
                 amended = True
 
         if not amended:
