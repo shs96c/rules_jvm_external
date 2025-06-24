@@ -265,9 +265,9 @@ def _deduplicate_artifacts_with_root_priority(root_artifacts, non_root_artifacts
 
     return root_artifacts + filtered_non_root
 
-def _coordinates_match(artifact, coordinates_string):
-    """Check if an artifact matches the given coordinate string."""
-    coords = unpack_coordinates(coordinates_string)
+def _coordinates_match(artifact, coordinates):
+    """Check if an artifact's `group` and `artifact` matches the given coordinate string."""
+    coords = unpack_coordinates(coordinates)
     return (artifact.group == coords.group and
             artifact.artifact == coords.artifact)
 
