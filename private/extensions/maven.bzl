@@ -122,6 +122,24 @@ override = tag_class(
     },
 )
 
+from_file = tag_class(
+    attrs = {
+        "name": attr.string(default = DEFAULT_NAME),
+        "src": attr.label(doc = "File to read artifacts from. There must be one entry per line", mandatory = True),
+    },
+)
+
+amend_artifact = tag_class(
+    attrs = {
+        "name": attr.string(default = DEFAULT_NAME),
+        "coordinates": attr.string(doc = "Coordinates of the artifact to amend.", mandatory = True),
+        "force_version": attr.bool(default = False),
+        "neverlink": attr.bool(),
+        "testonly": attr.bool(),
+        "exclusions": attr.string_list(doc = "Maven artifact tuples, in `artifactId:groupId` format", allow_empty = True),
+    },
+)
+
 def _logical_or(source, key, default_value, new_value):
     current = source.get(key, default_value)
     source[key] = current or new_value
@@ -600,7 +618,9 @@ def maven_impl(mctx):
 maven = module_extension(
     maven_impl,
     tag_classes = {
+        "amend_artifact": amend_artifact,
         "artifact": artifact,
+        "from_file": from_file,
         "install": install,
         "override": override,
     },
