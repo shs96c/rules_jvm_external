@@ -125,7 +125,8 @@ override = tag_class(
 from_file = tag_class(
     attrs = {
         "name": attr.string(default = DEFAULT_NAME),
-        "src": attr.label(doc = "File to read artifacts from. There must be one entry per line", mandatory = True),
+        "artifact_src": attr.label(doc = "File to read artifacts from. There must be one entry per line"),
+        "bom_src": attr.label(doc = "File to read BOMs from. There must be one entry per line"),
     },
 )
 
@@ -278,20 +279,44 @@ def _process_module_tags(mctx, mod, target_repos, repo_name_2_module_name):
     for from_file_tag in mod.tags.from_file:
         _check_repo_name(repo_name_2_module_name, from_file_tag.name, mod.name)
 
+        # Validate that at least one source file is specified
+        if not from_file_tag.artifact_src and not from_file_tag.bom_src:
+            fail("`from_file` tag must specify at least one of `artifact_src` or `bom_src`")
+
         repo = target_repos.get(from_file_tag.name, {})
-        existing_artifacts = repo.get("artifacts", [])
 
-        # Read the file and parse coordinates
-        file_content = mctx.read(mctx.path(from_file_tag.src))
-        lines = file_content.strip().split("\n")
+        # Process artifacts file if specified
+        if from_file_tag.artifact_src:
+            existing_artifacts = repo.get("artifacts", [])
 
-        for line in lines:
-            line = line.strip()
-            if line and not line.startswith("#"):  # Skip empty lines and comments
-                coords = unpack_coordinates(line)
-                existing_artifacts.append(coords)
+            # Read the file and parse coordinates
+            file_content = mctx.read(mctx.path(from_file_tag.artifact_src))
+            lines = file_content.strip().split("\n")
 
-        repo["artifacts"] = existing_artifacts
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith("#"):  # Skip empty lines and comments
+                    coords = unpack_coordinates(line)
+                    existing_artifacts.append(coords)
+
+            repo["artifacts"] = existing_artifacts
+
+        # Process BOMs file if specified
+        if from_file_tag.bom_src:
+            existing_boms = repo.get("boms", [])
+
+            # Read the file and parse coordinates
+            file_content = mctx.read(mctx.path(from_file_tag.bom_src))
+            lines = file_content.strip().split("\n")
+
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith("#"):  # Skip empty lines and comments
+                    coords = unpack_coordinates(line)
+                    existing_boms.append(coords)
+
+            repo["boms"] = existing_boms
+
         target_repos[from_file_tag.name] = repo
 
     for artifact in mod.tags.artifact:
