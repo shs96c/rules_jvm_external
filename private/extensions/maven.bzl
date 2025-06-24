@@ -272,6 +272,28 @@ def _coordinates_match(artifact, coordinates):
     return (artifact.group == coords.group and
             artifact.artifact == coords.artifact)
 
+def _process_coordinates_file(mctx, file_label):
+    """Read and parse coordinates from a file, returning a list of coordinate structs."""
+    if not file_label:
+        return []
+
+    file_content = mctx.read(mctx.path(file_label))
+    lines = file_content.strip().split("\n")
+
+    coords_list = []
+    for line in lines:
+        # Remove comments
+        idx = line.find("#")
+        if idx != -1:
+            line = line[0:idx]
+
+        line = line.strip()
+        if line:  # Skip empty lines and comments
+            coords = unpack_coordinates(line)
+            coords_list.append(coords)
+
+    return coords_list
+
 def _process_module_tags(mctx, mod, target_repos, repo_name_2_module_name):
     """Process artifact and install tags for a single module."""
 
@@ -288,34 +310,14 @@ def _process_module_tags(mctx, mod, target_repos, repo_name_2_module_name):
         # Process artifacts file if specified
         if from_file_tag.artifact_src:
             existing_artifacts = repo.get("artifacts", [])
-
-            # Read the file and parse coordinates
-            file_content = mctx.read(mctx.path(from_file_tag.artifact_src))
-            lines = file_content.strip().split("\n")
-
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith("#"):  # Skip empty lines and comments
-                    coords = unpack_coordinates(line)
-                    existing_artifacts.append(coords)
-
-            repo["artifacts"] = existing_artifacts
+            new_artifacts = _process_coordinates_file(mctx, from_file_tag.artifact_src)
+            repo["artifacts"] = existing_artifacts + new_artifacts
 
         # Process BOMs file if specified
         if from_file_tag.bom_src:
             existing_boms = repo.get("boms", [])
-
-            # Read the file and parse coordinates
-            file_content = mctx.read(mctx.path(from_file_tag.bom_src))
-            lines = file_content.strip().split("\n")
-
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith("#"):  # Skip empty lines and comments
-                    coords = unpack_coordinates(line)
-                    existing_boms.append(coords)
-
-            repo["boms"] = existing_boms
+            new_boms = _process_coordinates_file(mctx, from_file_tag.bom_src)
+            repo["boms"] = existing_boms + new_boms
 
         target_repos[from_file_tag.name] = repo
 
