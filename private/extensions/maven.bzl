@@ -265,8 +265,35 @@ def _deduplicate_artifacts_with_root_priority(root_artifacts, non_root_artifacts
 
     return root_artifacts + filtered_non_root
 
-def _process_module_tags(mod, target_repos, repo_name_2_module_name):
+def _coordinates_match(artifact, coordinates_string):
+    """Check if an artifact matches the given coordinate string."""
+    coords = unpack_coordinates(coordinates_string)
+    return (artifact.group == coords.group and
+            artifact.artifact == coords.artifact)
+
+def _process_module_tags(mod, target_repos, repo_name_2_module_name, mctx):
     """Process artifact and install tags for a single module."""
+
+    # Process from_file tags
+    for from_file_tag in mod.tags.from_file:
+        _check_repo_name(repo_name_2_module_name, from_file_tag.name, mod.name)
+
+        repo = target_repos.get(from_file_tag.name, {})
+        existing_artifacts = repo.get("artifacts", [])
+
+        # Read the file and parse coordinates
+        file_content = mctx.read(mctx.path(from_file_tag.src))
+        lines = file_content.strip().split("\n")
+
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith("#"):  # Skip empty lines and comments
+                coords = unpack_coordinates(line)
+                existing_artifacts.append(coords)
+
+        repo["artifacts"] = existing_artifacts
+        target_repos[from_file_tag.name] = repo
+
     for artifact in mod.tags.artifact:
         _check_repo_name(repo_name_2_module_name, artifact.name, mod.name)
 
@@ -288,6 +315,69 @@ def _process_module_tags(mod, target_repos, repo_name_2_module_name):
         existing_artifacts.append(to_add)
         repo["artifacts"] = existing_artifacts
         target_repos[artifact.name] = repo
+
+    # Process amend_artifact tags
+    for amend in mod.tags.amend_artifact:
+        _check_repo_name(repo_name_2_module_name, amend.name, mod.name)
+
+        repo = target_repos.get(amend.name, {})
+        artifacts = repo.get("artifacts", [])
+
+        # Find matching artifacts and amend them
+        amended = False
+        for i, artifact in enumerate(artifacts):
+            if _coordinates_match(artifact, amend.coordinates):
+                # Create a new artifact struct with amendments
+                amended_artifact = struct(
+                    group = artifact.group,
+                    artifact = artifact.artifact,
+                    version = getattr(artifact, "version", None),
+                    packaging = getattr(artifact, "packaging", None),
+                    classifier = getattr(artifact, "classifier", None),
+                    force_version = amend.force_version if amend.force_version else getattr(artifact, "force_version", None),
+                    neverlink = amend.neverlink if amend.neverlink else getattr(artifact, "neverlink", None),
+                    testonly = amend.testonly if amend.testonly else getattr(artifact, "testonly", None),
+                    exclusions = None,
+                )
+
+                # Handle exclusions separately as they need to be merged
+                existing_exclusions = getattr(artifact, "exclusions", []) or []
+                if amend.exclusions:
+                    new_exclusions = _add_exclusions(amend.exclusions)
+                    all_exclusions = existing_exclusions + new_exclusions
+                    amended_artifact = struct(
+                        group = amended_artifact.group,
+                        artifact = amended_artifact.artifact,
+                        version = amended_artifact.version,
+                        packaging = amended_artifact.packaging,
+                        classifier = amended_artifact.classifier,
+                        force_version = amended_artifact.force_version,
+                        neverlink = amended_artifact.neverlink,
+                        testonly = amended_artifact.testonly,
+                        exclusions = all_exclusions,
+                    )
+                else:
+                    amended_artifact = struct(
+                        group = amended_artifact.group,
+                        artifact = amended_artifact.artifact,
+                        version = amended_artifact.version,
+                        packaging = amended_artifact.packaging,
+                        classifier = amended_artifact.classifier,
+                        force_version = amended_artifact.force_version,
+                        neverlink = amended_artifact.neverlink,
+                        testonly = amended_artifact.testonly,
+                        exclusions = existing_exclusions if existing_exclusions else None,
+                    )
+
+                artifacts[i] = amended_artifact
+                amended = True
+
+        if not amended:
+            # If no matching artifact found, this might be an error or we could create a placeholder
+            fail("No artifact found matching coordinates '%s' for amendment" % amend.coordinates)
+
+        repo["artifacts"] = artifacts
+        target_repos[amend.name] = repo
 
     for install in mod.tags.install:
         _check_repo_name(repo_name_2_module_name, install.name, mod.name)
@@ -403,7 +493,7 @@ def maven_impl(mctx):
     # First pass: process the module tags, but keep root and non-root modules separately
     for mod in mctx.modules:
         collection = root_module_repos if mod.is_root else non_root_module_repos
-        _process_module_tags(mod, collection, repo_name_2_module_name)
+        _process_module_tags(mod, collection, repo_name_2_module_name, mctx)
 
     # Second pass: merge and deduplicate repositories
     all_repo_names = {name: True for name in root_module_repos.keys() + non_root_module_repos.keys()}.keys()
