@@ -271,7 +271,7 @@ def _coordinates_match(artifact, coordinates_string):
     return (artifact.group == coords.group and
             artifact.artifact == coords.artifact)
 
-def _process_module_tags(mod, target_repos, repo_name_2_module_name, mctx):
+def _process_module_tags(mctx, mod, target_repos, repo_name_2_module_name):
     """Process artifact and install tags for a single module."""
 
     # Process from_file tags
@@ -493,7 +493,7 @@ def maven_impl(mctx):
     # First pass: process the module tags, but keep root and non-root modules separately
     for mod in mctx.modules:
         collection = root_module_repos if mod.is_root else non_root_module_repos
-        _process_module_tags(mod, collection, repo_name_2_module_name, mctx)
+        _process_module_tags(mctx, mod, collection, repo_name_2_module_name)
 
     # Second pass: merge and deduplicate repositories
     all_repo_names = {name: True for name in root_module_repos.keys() + non_root_module_repos.keys()}.keys()
