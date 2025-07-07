@@ -4,45 +4,17 @@ module(
     bazel_compatibility = [">=7.0.0"],
 )
 
-bazel_dep(
-    name = "rules_android",
-    version = "0.1.1",
-)
-bazel_dep(
-    name = "bazel_features",
-    version = "1.19.0",
-)
-bazel_dep(
-    name = "bazel_skylib",
-    version = "1.7.1",
-)
-bazel_dep(
-    name = "platforms",
-    version = "0.0.10",
-)
-bazel_dep(
-    name = "rules_license",
-    version = "1.0.0",
-)
-bazel_dep(
-    name = "rules_java",
-    version = "7.12.2",
-)
-bazel_dep(
-    name = "rules_kotlin",
-    version = "1.9.6",
-)
-bazel_dep(
-    name = "rules_shell",
-    version = "0.3.0",
-)
+bazel_dep(name = "bazel_features", version = "1.30.0")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "rules_android", version = "0.1.1")
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_java", version = "8.12.0")
+bazel_dep(name = "rules_kotlin", version = "1.9.6")
+bazel_dep(name = "rules_shell", version = "0.4.0")
 
-bazel_dep(
-    name = "stardoc",
-    version = "0.7.0",
-    dev_dependency = True,
-    repo_name = "io_bazel_stardoc",
-)
+bazel_dep(name = "protobuf", version = "29.3", dev_dependency = True)
+bazel_dep(name = "stardoc", version = "0.7.1", dev_dependency = True, repo_name = "io_bazel_stardoc")
 
 # Remove this once rules_android has rolled out official Bzlmod support
 remote_android_extensions = use_extension("@bazel_tools//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
@@ -165,19 +137,6 @@ http_file(
 
 ############# Dev dependencies below here
 
-bazel_dep(
-    name = "protobuf",
-    # Note: In MODULE.bazel, we use a version >= 29.1 to avoid polluting the
-    # default maven repo name with protobuf's dependencies.
-    # https://github.com/protocolbuffers/protobuf/pull/19477
-    # However, in WORKSPACE, we use version 21.7 since version 27.2 doesn't work
-    # with Bazel 5.x.
-    # https://github.com/protocolbuffers/protobuf/commit/a80daa2a2caaaac9ebe9ae6bb1b639c2771c5c55
-    # This should be ok because we only use protobuf to pull in the google/protobuf/wrappers.proto
-    # for testing.
-    version = "29.3",
-    dev_dependency = True,
-)
 bazel_dep(
     name = "bzlmod_lock_files",
     version = "0.0.0",

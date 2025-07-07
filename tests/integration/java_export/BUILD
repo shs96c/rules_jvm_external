@@ -1,5 +1,8 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
-load("@rules_java//java:defs.bzl", "java_library")
+load("@protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_shell//shell:defs.bzl", "sh_test")
 load("//:defs.bzl", "artifact", "java_export")
 load("//private/rules:maven_project_jar.bzl", "maven_project_jar")
 

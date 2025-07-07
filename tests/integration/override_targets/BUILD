@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tests/integration:is_bzlmod_enabled.bzl", "is_bzlmod_enabled")
 
 java_library(
