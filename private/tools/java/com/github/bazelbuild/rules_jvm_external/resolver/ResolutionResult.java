@@ -16,6 +16,7 @@ package com.github.bazelbuild.rules_jvm_external.resolver;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.google.common.graph.Graph;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -26,25 +27,29 @@ import java.util.Set;
 public class ResolutionResult {
 
   private final Graph<Coordinates> resolution;
+  private final Map<Coordinates, String> coordinateHashes;
   private final Set<Conflict> conflicts;
-  private final Map<Coordinates, String> knownPaths;
 
-  public ResolutionResult(
-      Graph<Coordinates> resolution, Set<Conflict> conflicts, Map<Coordinates, String> knownPaths) {
+  public ResolutionResult(Graph<Coordinates> resolution, Map<Coordinates, String> coordinateHashes, Set<Conflict> conflicts) {
     this.resolution = resolution;
+    this.coordinateHashes = Map.copyOf(coordinateHashes);
     this.conflicts = conflicts;
-    this.knownPaths = Map.copyOf(knownPaths);
   }
 
   public Graph<Coordinates> getResolution() {
     return resolution;
   }
 
+  public Map<Coordinates, String> getCoordinateHashes() {
+    return coordinateHashes;
+  }
+
   public Set<Conflict> getConflicts() {
     return conflicts;
   }
 
+  // Alias for backward compatibility 
   public Map<Coordinates, String> getKnownPaths() {
-    return knownPaths;
+    return coordinateHashes;
   }
 }

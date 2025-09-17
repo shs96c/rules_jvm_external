@@ -22,6 +22,7 @@ public class GradleResolvedArtifactImpl implements Serializable, GradleResolvedA
   private String classifier;
   private String extension;
   private File file;
+  private String sha256;
   private Map<String, String> variantAttributes;
 
   public GradleResolvedArtifactImpl() {}
@@ -38,6 +39,10 @@ public class GradleResolvedArtifactImpl implements Serializable, GradleResolvedA
     return this.file;
   }
 
+  public String getSha256() {
+    return this.sha256;
+  }
+
   public Map<String, String> getVariantAttributes() {
     return variantAttributes;
   }
@@ -52,6 +57,10 @@ public class GradleResolvedArtifactImpl implements Serializable, GradleResolvedA
 
   public void setFile(File file) {
     this.file = file;
+  }
+
+  public void setSha256(String sha256) {
+    this.sha256 = sha256;
   }
 
   public void setVariantAttributes(Map<String, String> variantAttributes) {

@@ -60,6 +60,7 @@ public class GradleResolver implements Resolver {
   private final EventListener eventListener;
   private final Netrc netrc;
   private final int maxThreads;
+  private GradleDependencyModel lastResolvedModel;
 
   public GradleResolver(Netrc netrc, int maxThreads, EventListener eventListener) {
     this.netrc = netrc;
@@ -107,6 +108,7 @@ public class GradleResolver implements Resolver {
       GradleDependencyModel resolved =
           project.resolveDependencies(
               getGradleTaskProperties(repositories, project.getProjectDir()));
+      this.lastResolvedModel = resolved; // Store for later use by getDependencyInfo
       Instant end = Instant.now();
       if (isVerbose()) {
         System.out.println(
@@ -151,7 +153,7 @@ public class GradleResolver implements Resolver {
       GradleDependencyModel resolved,
       List<GradleDependency> boms)
       throws IOException {
-    MutableGraph<Coordinates> graph = GraphBuilder.directed().allowsSelfLoops(false).build();
+    MutableGraph<Coordinates> graph = GraphBuilder.directed().allowsSelfLoops(true).build();
 
     Set<Conflict> conflicts = new HashSet<>();
     List<GradleResolvedDependency> implementationDependencies = resolved.getResolvedDependencies();
@@ -488,5 +490,43 @@ public class GradleResolver implements Resolver {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Get cached file information for a coordinate from the last resolved model.
+   * Returns null if no cached information is available.
+   */
+  public GradleResolvedArtifact getCachedArtifactInfo(Coordinates coords) {
+    if (lastResolvedModel == null) {
+      return null;
+    }
+
+    for (GradleResolvedDependency dependency : lastResolvedModel.getResolvedDependencies()) {
+      if (dependency.getGroup().equals(coords.getGroupId()) 
+          && dependency.getName().equals(coords.getArtifactId())
+          && dependency.getVersion().equals(coords.getVersion())) {
+        
+        for (GradleResolvedArtifact artifact : dependency.getArtifacts()) {
+          // Match the artifact based on classifier and extension
+          String artifactClassifier = artifact.getClassifier();
+          String artifactExtension = artifact.getExtension();
+          
+          // Handle null/empty classifier and extension matching
+          boolean classifierMatches = (coords.getClassifier() == null || coords.getClassifier().isEmpty()) 
+              ? (artifactClassifier == null || artifactClassifier.isEmpty())
+              : coords.getClassifier().equals(artifactClassifier);
+              
+          boolean extensionMatches = (coords.getExtension() == null || coords.getExtension().isEmpty())
+              ? (artifactExtension == null || artifactExtension.isEmpty() || "jar".equals(artifactExtension))
+              : coords.getExtension().equals(artifactExtension);
+          
+          if (classifierMatches && extensionMatches) {
+            return artifact;
+          }
+        }
+      }
+    }
+    
+    return null;
   }
 }
