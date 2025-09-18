@@ -69,9 +69,7 @@ public class Main {
 
       ResolutionResult resolutionResult = resolver.resolve(request);
 
-      infos =
-          fulfillDependencyInfos(
-              listener, config, resolutionResult.getResolution(), resolutionResult.getKnownPaths());
+      infos = fulfillDependencyInfos(listener, config, resolutionResult);
 
       writeLockFile(listener, config, request, infos, resolutionResult.getConflicts());
 
@@ -83,11 +81,11 @@ public class Main {
   }
 
   private static Set<DependencyInfo> fulfillDependencyInfos(
-      EventListener listener,
-      ResolverConfig config,
-      Graph<Coordinates> resolved,
-      Map<Coordinates, String> knownPaths) {
+      EventListener listener, ResolverConfig config, ResolutionResult resolutionResult) {
     listener.onEvent(new PhaseEvent("Downloading dependencies"));
+
+    Graph<Coordinates> resolved = resolutionResult.getResolution();
+    Map<Coordinates, String> coordinateHashes = resolutionResult.getCoordinateHashes();
 
     ResolutionRequest request = config.getResolutionRequest();
     String rjeUnsafeCache = System.getenv("RJE_UNSAFE_CACHE");
@@ -102,8 +100,7 @@ public class Main {
             request.getLocalCache(config.getResolver().getName()),
             request.getRepositories(),
             listener,
-            cacheResults,
-            knownPaths);
+            cacheResults);
 
     List<CompletableFuture<Set<DependencyInfo>>> futures = new LinkedList<>();
 
@@ -123,6 +120,7 @@ public class Main {
               try {
                 return getDependencyInfos(
                     downloader,
+                    coordinateHashes,
                     coords,
                     resolved.successors(coords),
                     config.isFetchSources(),
@@ -178,13 +176,29 @@ public class Main {
 
   private static Set<DependencyInfo> getDependencyInfos(
       Downloader downloader,
+      Map<Coordinates, String> coordinateHashes,
       Coordinates coords,
       Set<Coordinates> dependencies,
       boolean fetchSources,
       boolean fetchJavadoc) {
     ImmutableSet.Builder<DependencyInfo> toReturn = ImmutableSet.builder();
 
-    DownloadResult result = downloader.download(coords);
+    DownloadResult result = null;
+    
+    // Check if we have a cached SHA256 for this coordinate
+    String cachedSha256 = coordinateHashes.get(coords);
+    if (cachedSha256 != null) {
+      // Try to get the cached result with repository information
+      result = downloader.getCachedResult(coords, cachedSha256);
+      if (result == null) {
+        // We have the SHA256 but not the file locally
+        // Use HEAD requests only to validate repository availability
+        result = downloader.getCachedResultWithHeadCheck(coords, cachedSha256);
+      }
+    } else {
+      // Fall back to normal download process
+      result = downloader.download(coords);
+    }
 
     if (result == null) {
       return toReturn.build();

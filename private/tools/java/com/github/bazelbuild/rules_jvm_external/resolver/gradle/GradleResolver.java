@@ -60,7 +60,6 @@ public class GradleResolver implements Resolver {
   private final EventListener eventListener;
   private final Netrc netrc;
   private final int maxThreads;
-  private GradleDependencyModel lastResolvedModel;
 
   public GradleResolver(Netrc netrc, int maxThreads, EventListener eventListener) {
     this.netrc = netrc;
@@ -108,23 +107,22 @@ public class GradleResolver implements Resolver {
       GradleDependencyModel resolved =
           project.resolveDependencies(
               getGradleTaskProperties(repositories, project.getProjectDir()));
-      this.lastResolvedModel = resolved; // Store for later use by getDependencyInfo
+
       Instant end = Instant.now();
       if (isVerbose()) {
-        System.out.println(
-            "Resolved dependencies and artifacts with Gradle resolver in "
-                + (end.toEpochMilli() - start.toEpochMilli())
-                + " ms");
+        System.err.printf(
+            "Resolved %d dependencies and artifacts with Gradle resolver in %d ms",
+                dependencies.size(),
+                (end.toEpochMilli() - start.toEpochMilli()));
       }
       start = Instant.now();
       ResolutionResult result = parseDependencies(dependencies, resolved, boms);
       end = Instant.now();
 
       if (isVerbose()) {
-        System.err.println(
-            "Building dependency graph took "
-                + (end.toEpochMilli() - start.toEpochMilli())
-                + " ms");
+        System.err.printf(
+            "Building dependency graph took %d ms\n",
+                (end.toEpochMilli() - start.toEpochMilli()));
       }
       return result;
     } catch (Exception e) {
@@ -156,10 +154,11 @@ public class GradleResolver implements Resolver {
     MutableGraph<Coordinates> graph = GraphBuilder.directed().allowsSelfLoops(true).build();
 
     Set<Conflict> conflicts = new HashSet<>();
+    Map<Coordinates, String> coordinateHashes = new HashMap<>();
     List<GradleResolvedDependency> implementationDependencies = resolved.getResolvedDependencies();
     List<GradleUnresolvedDependency> unresolvedDependencies = resolved.getUnresolvedDependencies();
     if (implementationDependencies == null) {
-      return new ResolutionResult(graph, null, Map.of());
+      return new ResolutionResult(graph, coordinateHashes, conflicts);
     }
 
     for (GradleResolvedDependency dependency : implementationDependencies) {
@@ -185,6 +184,12 @@ public class GradleResolver implements Resolver {
                 classifier,
                 gradleCoordinates.getVersion());
         addDependency(graph, coordinates, dependency, conflicts, requestedDeps, visited);
+        
+        // Store SHA256 hash if available
+        if (artifact.getSha256() != null) {
+          coordinateHashes.put(coordinates, artifact.getSha256());
+        }
+        
         // if there's a conflict and the conflicting version isn't one that's actually requested
         // then it's an actual conflict we want to report
         if (dependency.isConflict() && !isRequestedDep(requestedDeps, dependency)) {
@@ -231,7 +236,7 @@ public class GradleResolver implements Resolver {
       graph.addNode(coordinates);
     }
 
-    return new ResolutionResult(graph, conflicts, Map.of());
+    return new ResolutionResult(graph, coordinateHashes, conflicts);
   }
 
   private boolean isRequestedDep(
@@ -492,41 +497,5 @@ public class GradleResolver implements Resolver {
     }
   }
 
-  /**
-   * Get cached file information for a coordinate from the last resolved model.
-   * Returns null if no cached information is available.
-   */
-  public GradleResolvedArtifact getCachedArtifactInfo(Coordinates coords) {
-    if (lastResolvedModel == null) {
-      return null;
-    }
 
-    for (GradleResolvedDependency dependency : lastResolvedModel.getResolvedDependencies()) {
-      if (dependency.getGroup().equals(coords.getGroupId()) 
-          && dependency.getName().equals(coords.getArtifactId())
-          && dependency.getVersion().equals(coords.getVersion())) {
-        
-        for (GradleResolvedArtifact artifact : dependency.getArtifacts()) {
-          // Match the artifact based on classifier and extension
-          String artifactClassifier = artifact.getClassifier();
-          String artifactExtension = artifact.getExtension();
-          
-          // Handle null/empty classifier and extension matching
-          boolean classifierMatches = (coords.getClassifier() == null || coords.getClassifier().isEmpty()) 
-              ? (artifactClassifier == null || artifactClassifier.isEmpty())
-              : coords.getClassifier().equals(artifactClassifier);
-              
-          boolean extensionMatches = (coords.getExtension() == null || coords.getExtension().isEmpty())
-              ? (artifactExtension == null || artifactExtension.isEmpty() || "jar".equals(artifactExtension))
-              : coords.getExtension().equals(artifactExtension);
-          
-          if (classifierMatches && extensionMatches) {
-            return artifact;
-          }
-        }
-      }
-    }
-    
-    return null;
-  }
 }

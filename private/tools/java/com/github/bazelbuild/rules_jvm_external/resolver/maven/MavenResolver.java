@@ -267,7 +267,7 @@ public class MavenResolver implements Resolver {
             getConflicts(request.getDependencies(), resolvedDependencies),
             graphNormalizationResult.getConflicts());
 
-    return new ResolutionResult(graphNormalizationResult.getNormalizedGraph(), conflicts, Map.of());
+    return new ResolutionResult(graphNormalizationResult.getNormalizedGraph(), Map.of(), conflicts);
   }
 
   private GraphNormalizationResult makeVersionsConsistent(Graph<Coordinates> dependencyGraph) {

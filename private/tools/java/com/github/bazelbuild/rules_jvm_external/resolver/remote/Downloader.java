@@ -259,4 +259,68 @@ public class Downloader {
       throw new UncheckedIOException(e);
     }
   }
+
+  /**
+   * Try to get the cached file path for coordinates without downloading.
+   * Also determines which repositories the file could have come from by checking availability.
+   * Returns null if the file is not available in the local cache.
+   */
+  public DownloadResult getCachedResult(Coordinates coords, String cachedSha256) {
+    Path cachedResult = localRepository.resolve(coords.toRepoPath());
+    if (!Files.exists(cachedResult)) {
+      return null;
+    }
+
+    // Determine which repositories have this artifact by checking HEAD requests
+    Set<URI> availableRepos = new LinkedHashSet<>();
+    String path = coords.toRepoPath();
+    
+    for (URI repo : this.repos) {
+      if (httpDownloader.head(buildUri(repo, path))) {
+        availableRepos.add(repo);
+      }
+    }
+
+    return new DownloadResult(coords, availableRepos, cachedResult, cachedSha256);
+  }
+
+  /**
+   * When we have a SHA256 but no local file, download from the first available repository
+   * but skip SHA256 calculation since we already have it from Gradle resolution.
+   */
+  public DownloadResult getCachedResultWithHeadCheck(Coordinates coords, String cachedSha256) {
+    String path = coords.toRepoPath();
+    Path cachedResult = localRepository.resolve(path);
+    Set<URI> availableRepos = new LinkedHashSet<>();
+    Path pathInRepo = null;
+    
+    // Try to download from the first available repository
+    for (URI repo : this.repos) {
+      if (httpDownloader.head(buildUri(repo, path))) {
+        availableRepos.add(repo);
+        
+        // Download from this repository if we haven't downloaded yet
+        if (pathInRepo == null) {
+          LOG.fine(String.format("Downloading %s (with cached SHA256)%n", coords));
+          pathInRepo = httpDownloader.get(buildUri(repo, path));
+          
+          if (pathInRepo != null && cacheDownloads && !cachedResult.equals(pathInRepo)) {
+            try {
+              Files.createDirectories(cachedResult.getParent());
+              Files.copy(pathInRepo, cachedResult, REPLACE_EXISTING);
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+          }
+        }
+      }
+    }
+
+    if (availableRepos.isEmpty() || pathInRepo == null) {
+      return null;
+    }
+
+    // Return result with downloaded file and cached SHA256 (skip recalculation)
+    return new DownloadResult(coords, availableRepos, pathInRepo, cachedSha256);
+  }
 }
