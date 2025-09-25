@@ -65,10 +65,14 @@ public class GradleProject implements AutoCloseable {
   }
 
   public void connect(Path gradlePath) {
-    // Note: We do not set gradle.user.home here to avoid timing issues.
-    // Instead, we symlink necessary files and directories when
-    // `useUnsafeCache` is enabled.
-    System.setProperty("org.gradle.parallel", "true");
+    // Set gradle.user.home to our isolated directory for hermeticity
+    // When useUnsafeCache is enabled, caches are symlinked for performance
+    // but all other gradle directories (native, daemon, etc.) remain isolated
+    System.setProperty("gradle.user.home", gradleCacheDir.toString());
+    System.setProperty("org.gradle.daemon", "false");
+    System.setProperty("org.gradle.parallel", "false");
+    System.setProperty("org.gradle.configureondemand", "false");
+    System.setProperty("org.gradle.caching", "false");
     connection =
         GradleConnector.newConnector()
             .forProjectDirectory(projectDir.toFile())
@@ -95,6 +99,12 @@ public class GradleProject implements AutoCloseable {
         .addProgressListener(new GradleProgressListener(eventListener))
         .setStandardError(System.err)
         .withArguments(arguments)
+        .setJvmArguments(
+            "-Dgradle.user.home=" + gradleCacheDir,
+            "-Dorg.gradle.daemon=false",
+            "-Dorg.gradle.parallel=false",
+            "-Dorg.gradle.configureondemand=false",
+            "-Dorg.gradle.caching=false")
         // .setJvmArguments("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
         // uncomment if you want to debug the plugin itself
         .get();
