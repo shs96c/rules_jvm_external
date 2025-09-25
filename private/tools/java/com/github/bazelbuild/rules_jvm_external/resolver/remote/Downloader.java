@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import org.apache.maven.model.Model;
@@ -53,20 +54,39 @@ public class Downloader {
   private final Set<URI> repos;
   private final boolean cacheDownloads;
   private final HttpDownloader httpDownloader;
+  private final Map<Coordinates, String> knownChecksums;
 
   public Downloader(
       Netrc netrc,
       Path localRepository,
       Collection<URI> repositories,
       EventListener listener,
-      boolean cacheDownloads) {
+      boolean cacheDownloads,
+      Map<Coordinates, String> knownChecksums) {
     this.localRepository = localRepository;
     this.repos = Set.copyOf(repositories);
     this.cacheDownloads = cacheDownloads;
     this.httpDownloader = new HttpDownloader(netrc, listener);
+    this.knownChecksums = Map.copyOf(knownChecksums);
   }
 
   public DownloadResult download(Coordinates coords) {
+    // Check if we have a known checksum for this coordinate
+    String knownChecksum = knownChecksums.get(coords);
+    if (knownChecksum != null) {
+      // First check if this might be a POM-only dependency by trying the main artifact
+      DownloadResult headOnlyResult = performHeadOnlyDownload(coords, knownChecksum);
+      if (headOnlyResult != null) {
+        return headOnlyResult;
+      }
+
+      // If HEAD requests failed, fall back to full download logic to handle POM-only dependencies
+      LOG.fine(
+          String.format(
+              "HEAD requests failed for %s with known checksum, falling back to full resolution%n",
+              coords));
+    }
+
     DownloadResult result = performDownload(coords);
     if (result != null) {
       return result;
@@ -209,6 +229,26 @@ public class Downloader {
     }
 
     return !JAR_PACKAGINGS.contains(extension);
+  }
+
+  private DownloadResult performHeadOnlyDownload(Coordinates coords, String knownChecksum) {
+    Set<URI> foundRepos = new LinkedHashSet<>();
+    String path = coords.toRepoPath();
+
+    LOG.fine(
+        String.format("Using known checksum for %s, checking repositories via HEAD%n", coords));
+
+    for (URI repo : this.repos) {
+      if (httpDownloader.head(buildUri(repo, path))) {
+        foundRepos.add(repo);
+      }
+    }
+
+    if (foundRepos.isEmpty()) {
+      return null;
+    }
+
+    return new DownloadResult(coords, Set.copyOf(foundRepos), null, knownChecksum);
   }
 
   private String calculateSha256(Path path) {

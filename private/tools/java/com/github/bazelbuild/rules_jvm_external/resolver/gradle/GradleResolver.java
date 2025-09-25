@@ -157,7 +157,7 @@ public class GradleResolver implements Resolver {
     List<GradleResolvedDependency> implementationDependencies = resolved.getResolvedDependencies();
     List<GradleUnresolvedDependency> unresolvedDependencies = resolved.getUnresolvedDependencies();
     if (implementationDependencies == null) {
-      return new ResolutionResult(graph, null);
+      return new ResolutionResult(graph, null, Map.of());
     }
 
     for (GradleResolvedDependency dependency : implementationDependencies) {
@@ -229,7 +229,7 @@ public class GradleResolver implements Resolver {
       graph.addNode(coordinates);
     }
 
-    return new ResolutionResult(graph, conflicts);
+    return new ResolutionResult(graph, conflicts, Map.of());
   }
 
   private boolean isRequestedDep(

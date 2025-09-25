@@ -69,7 +69,9 @@ public class Main {
 
       ResolutionResult resolutionResult = resolver.resolve(request);
 
-      infos = fulfillDependencyInfos(listener, config, resolutionResult.getResolution());
+      infos =
+          fulfillDependencyInfos(
+              listener, config, resolutionResult.getResolution(), resolutionResult.getKnownPaths());
 
       writeLockFile(listener, config, request, infos, resolutionResult.getConflicts());
 
@@ -81,7 +83,10 @@ public class Main {
   }
 
   private static Set<DependencyInfo> fulfillDependencyInfos(
-      EventListener listener, ResolverConfig config, Graph<Coordinates> resolved) {
+      EventListener listener,
+      ResolverConfig config,
+      Graph<Coordinates> resolved,
+      Map<Coordinates, String> knownPaths) {
     listener.onEvent(new PhaseEvent("Downloading dependencies"));
 
     ResolutionRequest request = config.getResolutionRequest();
@@ -97,7 +102,8 @@ public class Main {
             request.getLocalCache(config.getResolver().getName()),
             request.getRepositories(),
             listener,
-            cacheResults);
+            cacheResults,
+            knownPaths);
 
     List<CompletableFuture<Set<DependencyInfo>>> futures = new LinkedList<>();
 

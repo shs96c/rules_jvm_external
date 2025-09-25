@@ -209,7 +209,7 @@ public class V2LockFile {
             shortKey += ":" + coords.getExtension();
           }
 
-          if (info.getPath().isEmpty() || info.getSha256().isEmpty()) {
+          if (info.getPath().isEmpty() && info.getSha256().isEmpty()) {
             skipped.add(key);
           }
 
