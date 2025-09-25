@@ -100,7 +100,8 @@ public class Main {
             request.getLocalCache(config.getResolver().getName()),
             request.getRepositories(),
             listener,
-            cacheResults);
+            cacheResults,
+            coordinateHashes);
 
     List<CompletableFuture<Set<DependencyInfo>>> futures = new LinkedList<>();
 
@@ -120,7 +121,6 @@ public class Main {
               try {
                 return getDependencyInfos(
                     downloader,
-                    coordinateHashes,
                     coords,
                     resolved.successors(coords),
                     config.isFetchSources(),
@@ -176,29 +176,13 @@ public class Main {
 
   private static Set<DependencyInfo> getDependencyInfos(
       Downloader downloader,
-      Map<Coordinates, String> coordinateHashes,
       Coordinates coords,
       Set<Coordinates> dependencies,
       boolean fetchSources,
       boolean fetchJavadoc) {
     ImmutableSet.Builder<DependencyInfo> toReturn = ImmutableSet.builder();
 
-    DownloadResult result = null;
-    
-    // Check if we have a cached SHA256 for this coordinate
-    String cachedSha256 = coordinateHashes.get(coords);
-    if (cachedSha256 != null) {
-      // Try to get the cached result with repository information
-      result = downloader.getCachedResult(coords, cachedSha256);
-      if (result == null) {
-        // We have the SHA256 but not the file locally
-        // Use HEAD requests only to validate repository availability
-        result = downloader.getCachedResultWithHeadCheck(coords, cachedSha256);
-      }
-    } else {
-      // Fall back to normal download process
-      result = downloader.download(coords);
-    }
+    DownloadResult result = downloader.download(coords);
 
     if (result == null) {
       return toReturn.build();
