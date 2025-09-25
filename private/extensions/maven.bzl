@@ -342,9 +342,15 @@ def _process_gradle_versions_file(parsed, bom_modules):
     boms = []
 
     for value in parsed.get("libraries", {}).values():
+        if type(value) == "string":
+            coords = value
+            artifacts.append(unpack_coordinates(coords))
+            continue
+
         if not "module" in value.keys():
             continue
-        coords = value["module"]
+        else:
+            coords = value["module"]
 
         if "version.ref" in value.keys():
             version = parsed.get("versions", {}).get(value["version.ref"])
