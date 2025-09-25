@@ -127,8 +127,8 @@ public class MavenRepo {
   }
 
   /**
-   * Add a POM that declares a relocation from the 'from' coordinates to the 'to' coordinates.
-   * This writes only the POM (no artifact file), which mirrors real-world relocation stubs.
+   * Add a POM that declares a relocation from the 'from' coordinates to the 'to' coordinates. This
+   * writes only the POM (no artifact file), which mirrors real-world relocation stubs.
    */
   public MavenRepo addRelocation(Coordinates from, Coordinates to) {
     try {

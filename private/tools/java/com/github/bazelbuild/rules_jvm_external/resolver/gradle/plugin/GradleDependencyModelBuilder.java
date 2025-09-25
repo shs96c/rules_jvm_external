@@ -30,7 +30,6 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -432,11 +431,11 @@ public class GradleDependencyModelBuilder implements ToolingModelBuilder {
                     GradleResolvedArtifact resolvedArtifact = new GradleResolvedArtifactImpl();
                     if (artifact.getFile() != null) {
                       resolvedArtifact.setFile(artifact.getFile());
-                      
+
                       // Calculate SHA256 from the resolved file
                       String sha256 = calculateSha256(artifact.getFile());
                       resolvedArtifact.setSha256(sha256);
-                      
+
                       GradleResolvedDependency resolvedDependency =
                           coordinatesGradleResolvedDependencyMap.get(entry.getKey());
                       synchronized (resolvedDependency) {
@@ -462,7 +461,7 @@ public class GradleDependencyModelBuilder implements ToolingModelBuilder {
         resolvedArtifact.setFile(artifact.getFile());
         resolvedArtifact.setClassifier(extractClassifier(artifact.getFile(), identifier));
         resolvedArtifact.setExtension(Files.getFileExtension(artifact.getFile().getName()));
-        
+
         // Calculate SHA256 from the resolved file
         String sha256 = calculateSha256(artifact.getFile());
         resolvedArtifact.setSha256(sha256);
@@ -555,7 +554,7 @@ public class GradleDependencyModelBuilder implements ToolingModelBuilder {
       resolvedArtifact.setFile(artifact.getFile());
       if (artifact.getFile() != null) {
         resolvedArtifact.setExtension(PomUtil.extractPackagingFromPom(artifact.getFile()));
-        
+
         // Calculate SHA256 from the resolved POM file
         String sha256 = calculateSha256(artifact.getFile());
         resolvedArtifact.setSha256(sha256);
@@ -564,15 +563,12 @@ public class GradleDependencyModelBuilder implements ToolingModelBuilder {
     }
   }
 
-  /**
-   * Calculate SHA256 hash of a file.
-   * Returns null if file doesn't exist or can't be read.
-   */
+  /** Calculate SHA256 hash of a file. Returns null if file doesn't exist or can't be read. */
   private String calculateSha256(File file) {
     if (file == null || !file.exists() || !file.isFile()) {
       return null;
     }
-    
+
     try {
       byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
       return Hashing.sha256().hashBytes(bytes).toString();

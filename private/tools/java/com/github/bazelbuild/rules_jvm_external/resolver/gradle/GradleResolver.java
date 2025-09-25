@@ -120,8 +120,7 @@ public class GradleResolver implements Resolver {
       if (isVerbose()) {
         System.err.printf(
             "Resolved %d dependencies and artifacts with Gradle resolver in %d ms",
-                dependencies.size(),
-                (end.toEpochMilli() - start.toEpochMilli()));
+            dependencies.size(), (end.toEpochMilli() - start.toEpochMilli()));
       }
       start = Instant.now();
       ResolutionResult result = parseDependencies(dependencies, resolved, boms);
@@ -129,8 +128,7 @@ public class GradleResolver implements Resolver {
 
       if (isVerbose()) {
         System.err.printf(
-            "Building dependency graph took %d ms\n",
-                (end.toEpochMilli() - start.toEpochMilli()));
+            "Building dependency graph took %d ms\n", (end.toEpochMilli() - start.toEpochMilli()));
       }
       return result;
     } catch (Exception e) {
@@ -196,13 +194,14 @@ public class GradleResolver implements Resolver {
                 gradleCoordinates.getVersion());
         // Track artifact for this node
         artifactsByNode.computeIfAbsent(coordinates, k -> new ArrayList<>()).add(artifact);
-        addDependency(graph, coordinates, dependency, conflicts, requestedDeps, visited, artifactsByNode);
-        
+        addDependency(
+            graph, coordinates, dependency, conflicts, requestedDeps, visited, artifactsByNode);
+
         // Store SHA256 hash if available
         if (artifact.getSha256() != null && (extension == null || !extension.equals("pom"))) {
           coordinateHashes.put(coordinates, artifact.getSha256());
         }
-        
+
         // if there's a conflict and the conflicting version isn't one that's actually requested
         // then it's an actual conflict we want to report
         if (dependency.isConflict() && !isRequestedDep(requestedDeps, dependency)) {
@@ -436,9 +435,14 @@ public class GradleResolver implements Resolver {
       if (model.getDistributionManagement() != null) {
         Relocation relocation = model.getDistributionManagement().getRelocation();
         if (relocation != null) {
-          String g = relocation.getGroupId() != null ? relocation.getGroupId() : fallback.getGroupId();
-          String a = relocation.getArtifactId() != null ? relocation.getArtifactId() : fallback.getArtifactId();
-          String v = relocation.getVersion() != null ? relocation.getVersion() : fallback.getVersion();
+          String g =
+              relocation.getGroupId() != null ? relocation.getGroupId() : fallback.getGroupId();
+          String a =
+              relocation.getArtifactId() != null
+                  ? relocation.getArtifactId()
+                  : fallback.getArtifactId();
+          String v =
+              relocation.getVersion() != null ? relocation.getVersion() : fallback.getVersion();
           return new Coordinates(g, a, fallback.getExtension(), fallback.getClassifier(), v);
         }
       }
@@ -447,9 +451,7 @@ public class GradleResolver implements Resolver {
       if (isVerbose()) {
         eventListener.onEvent(
             new LogEvent(
-                "gradle",
-                "Failed to parse POM for relocation: " + pomFile,
-                e.getMessage()));
+                "gradle", "Failed to parse POM for relocation: " + pomFile, e.getMessage()));
       }
     }
     return null;
@@ -630,6 +632,4 @@ public class GradleResolver implements Resolver {
       throw new RuntimeException(e);
     }
   }
-
-
 }

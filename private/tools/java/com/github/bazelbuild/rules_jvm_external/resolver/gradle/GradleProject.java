@@ -70,7 +70,7 @@ public class GradleProject implements AutoCloseable {
     // but all other gradle directories (native, daemon, etc.) remain isolated
     System.setProperty("gradle.user.home", gradleCacheDir.toString());
     System.setProperty("org.gradle.daemon", "false");
-//    System.setProperty("org.gradle.parallel", "false");
+    //    System.setProperty("org.gradle.parallel", "false");
     System.setProperty("org.gradle.configureondemand", "false");
     System.setProperty("org.gradle.caching", "false");
     connection =
@@ -102,7 +102,7 @@ public class GradleProject implements AutoCloseable {
         .setJvmArguments(
             "-Dgradle.user.home=" + gradleCacheDir,
             "-Dorg.gradle.daemon=false",
-//            "-Dorg.gradle.parallel=false",
+            //            "-Dorg.gradle.parallel=false",
             "-Dorg.gradle.configureondemand=false",
             "-Dorg.gradle.caching=false")
         // .setJvmArguments("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
