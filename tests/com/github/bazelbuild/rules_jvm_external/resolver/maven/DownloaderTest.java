@@ -14,7 +14,7 @@
 
 package com.github.bazelbuild.rules_jvm_external.resolver.maven;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.resolver.MavenRepo;
@@ -23,6 +23,7 @@ import com.github.bazelbuild.rules_jvm_external.resolver.remote.DownloadResult;
 import com.github.bazelbuild.rules_jvm_external.resolver.remote.Downloader;
 import com.github.bazelbuild.rules_jvm_external.resolver.ui.NullListener;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -59,9 +60,84 @@ public class DownloaderTest {
 
     DownloadResult downloadResult =
         new Downloader(
-                Netrc.fromUserHome(), localRepo, Set.of(repo.toUri()), new NullListener(), false, Map.of())
+                Netrc.fromUserHome(),
+                localRepo,
+                Set.of(repo.toUri()),
+                new NullListener(),
+                false,
+                Map.of())
             .download(coords);
 
     assertTrue(downloadResult.getPath().isEmpty());
+  }
+
+  @Test
+  public void downloaderUsesHeadOnlyWithKnownChecksum() throws IOException {
+    Coordinates coords = new Coordinates("com.example:test-jar:1.0");
+    String knownChecksum = "abc123def456";
+
+    Path repo = MavenRepo.create().add(coords).getPath();
+    Path localRepo = Files.createTempDirectory("local");
+
+    DownloadResult downloadResult =
+        new Downloader(
+                Netrc.fromUserHome(),
+                localRepo,
+                Set.of(repo.toUri()),
+                new NullListener(),
+                false,
+                Map.of(coords, knownChecksum))
+            .download(coords);
+
+    // Should return the known checksum without downloading
+    assertTrue(downloadResult.getSha256().isPresent());
+    assertEquals(knownChecksum, downloadResult.getSha256().get());
+    assertTrue(downloadResult.getPath().isEmpty());
+    assertFalse(downloadResult.getRepositories().isEmpty());
+  }
+
+  @Test
+  public void downloaderFallsBackWhenHeadRequestsFail() throws IOException {
+    Coordinates coords = new Coordinates("com.example:nonexistent:1.0");
+    String knownChecksum = "abc123def456";
+
+    Path localRepo = Files.createTempDirectory("local");
+
+    // No actual repo created, so HEAD requests will fail
+    DownloadResult downloadResult =
+        new Downloader(
+                Netrc.fromUserHome(),
+                localRepo,
+                Set.of(URI.create("http://nonexistent.example.com/")),
+                new NullListener(),
+                false,
+                Map.of(coords, knownChecksum))
+            .download(coords);
+
+    // Should return null when both HEAD and regular download fail
+    assertNull(downloadResult);
+  }
+
+  @Test
+  public void downloaderBehavesNormallyWithoutKnownChecksum() throws IOException {
+    Coordinates coords = new Coordinates("com.example:test-jar:1.0");
+
+    Path repo = MavenRepo.create().add(coords).getPath();
+    Path localRepo = Files.createTempDirectory("local");
+
+    DownloadResult downloadResult =
+        new Downloader(
+                Netrc.fromUserHome(),
+                localRepo,
+                Set.of(repo.toUri()),
+                new NullListener(),
+                false,
+                Map.of()) // No known checksums
+            .download(coords);
+
+    // Should behave normally: download file and compute checksum
+    assertTrue(downloadResult.getPath().isPresent());
+    assertTrue(downloadResult.getSha256().isPresent());
+    assertFalse(downloadResult.getRepositories().isEmpty());
   }
 }

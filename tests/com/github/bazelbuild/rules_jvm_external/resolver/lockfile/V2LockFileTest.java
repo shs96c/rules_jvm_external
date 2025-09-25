@@ -15,6 +15,7 @@
 package com.github.bazelbuild.rules_jvm_external.resolver.lockfile;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import com.github.bazelbuild.rules_jvm_external.resolver.Conflict;
@@ -136,6 +137,34 @@ public class V2LockFileTest {
     V2LockFile lockFile = roundTrip(new V2LockFile(repos, Set.of(), conflicts));
 
     assertEquals(conflicts, lockFile.getConflicts());
+  }
+
+  @Test
+  public void shouldNotSkipDependenciesWithKnownChecksumButNullPath() {
+    DependencyInfo infoWithKnownChecksum =
+        new DependencyInfo(
+            new Coordinates("com.example:known-checksum:1.0.0"),
+            repos,
+            Optional.empty(), // null path
+            Optional.of("abc123def456"), // known checksum
+            Set.of(),
+            Set.of(),
+            new TreeMap<>());
+
+    Map<String, Object> rendered =
+        new V2LockFile(repos, Set.of(infoWithKnownChecksum), Set.of()).render();
+
+    // Should not be marked as skipped since it has a checksum
+    Set<?> skipped = (Set<?>) rendered.get("skipped");
+    assertFalse(
+        "Dependencies with known checksums should not be skipped",
+        skipped.contains("com.example:known-checksum:1.0.0"));
+
+    // Should have the checksum in artifacts
+    Map<?, ?> artifacts = (Map<?, ?>) rendered.get("artifacts");
+    Map<?, ?> artifactData = (Map<?, ?>) artifacts.get("com.example:known-checksum");
+    Map<?, ?> shasums = (Map<?, ?>) artifactData.get("shasums");
+    assertEquals("abc123def456", shasums.get("jar"));
   }
 
   private V2LockFile roundTrip(V2LockFile lockFile) {
