@@ -38,6 +38,9 @@ import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.runfiles.AutoBazelRepository;
 import com.google.devtools.build.runfiles.Runfiles;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -52,6 +55,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Relocation;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.codehaus.plexus.util.ReaderFactory;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 /** The implementation for the Gradle resolver */
 @AutoBazelRepository
@@ -155,6 +163,8 @@ public class GradleResolver implements Resolver {
 
     Set<Conflict> conflicts = new HashSet<>();
     Map<Coordinates, String> coordinateHashes = new HashMap<>();
+    // Track artifacts per node so we can inspect POM files for relocation later
+    Map<Coordinates, List<GradleResolvedArtifact>> artifactsByNode = new HashMap<>();
     List<GradleResolvedDependency> implementationDependencies = resolved.getResolvedDependencies();
     List<GradleUnresolvedDependency> unresolvedDependencies = resolved.getUnresolvedDependencies();
     if (implementationDependencies == null) {
@@ -172,10 +182,11 @@ public class GradleResolver implements Resolver {
                 artifact.getClassifier(),
                 artifact.getExtension());
         String extension = gradleCoordinates.getExtension();
-        if (extension != null && extension.equals("pom")) {
-          extension = null;
-        }
         String classifier = gradleCoordinates.getClassifier();
+        // POM artifacts should not generate their own node; coerce to JAR for node identity
+        if ("pom".equals(extension)) {
+          extension = null; // Coordinates() will default to jar
+        }
         Coordinates coordinates =
             new Coordinates(
                 gradleCoordinates.getGroupId(),
@@ -183,10 +194,12 @@ public class GradleResolver implements Resolver {
                 extension,
                 classifier,
                 gradleCoordinates.getVersion());
-        addDependency(graph, coordinates, dependency, conflicts, requestedDeps, visited);
+        // Track artifact for this node
+        artifactsByNode.computeIfAbsent(coordinates, k -> new ArrayList<>()).add(artifact);
+        addDependency(graph, coordinates, dependency, conflicts, requestedDeps, visited, artifactsByNode);
         
         // Store SHA256 hash if available
-        if (artifact.getSha256() != null) {
+        if (artifact.getSha256() != null && (extension == null || !extension.equals("pom"))) {
           coordinateHashes.put(coordinates, artifact.getSha256());
         }
         
@@ -236,6 +249,9 @@ public class GradleResolver implements Resolver {
       graph.addNode(coordinates);
     }
 
+    // After building the graph, contract relocation stubs (keep aggregating POMs)
+    collapseRelocations(graph, coordinateHashes, conflicts, artifactsByNode);
+
     return new ResolutionResult(graph, coordinateHashes, conflicts);
   }
 
@@ -255,7 +271,8 @@ public class GradleResolver implements Resolver {
       GradleResolvedDependency parentInfo,
       Set<Conflict> conflicts,
       List<GradleDependency> requestedDeps,
-      Set<Coordinates> visited) {
+      Set<Coordinates> visited,
+      Map<Coordinates, List<GradleResolvedArtifact>> artifactsByNode) {
     if (visited.contains(parent)) {
       return;
     }
@@ -273,8 +290,9 @@ public class GradleResolver implements Resolver {
                   childArtifact.getClassifier(),
                   childArtifact.getExtension());
           String extension = childArtifact.getExtension();
-          if (extension != null && extension.equals("pom")) {
-            extension = null;
+          // POM artifacts should not generate their own node; coerce to JAR for node identity
+          if ("pom".equals(extension)) {
+            extension = null; // Coordinates() will default to jar
           }
           Coordinates child =
               new Coordinates(
@@ -283,6 +301,8 @@ public class GradleResolver implements Resolver {
                   extension,
                   childCoordinates.getClassifier(),
                   childCoordinates.getVersion());
+          // Track artifact for child node
+          artifactsByNode.computeIfAbsent(child, k -> new ArrayList<>()).add(childArtifact);
           graph.addNode(child);
           graph.putEdge(parent, child);
           // if there's a conflict and the conflicting version isn't one that's actually requested
@@ -315,10 +335,124 @@ public class GradleResolver implements Resolver {
               childInfo,
               conflicts,
               requestedDeps,
-              visited); // recursively traverse the graph
+              visited,
+              artifactsByNode); // recursively traverse the graph
         }
       }
     }
+  }
+
+  private void collapseRelocations(
+      MutableGraph<Coordinates> graph,
+      Map<Coordinates, String> coordinateHashes,
+      Set<Conflict> conflicts,
+      Map<Coordinates, List<GradleResolvedArtifact>> artifactsByNode) {
+    List<Coordinates> toRemove = new ArrayList<>();
+
+    for (Coordinates node : graph.nodes()) {
+      List<GradleResolvedArtifact> artifacts = artifactsByNode.get(node);
+      if (artifacts == null || artifacts.isEmpty()) {
+        continue;
+      }
+
+      File pomFile = null;
+      for (GradleResolvedArtifact a : artifacts) {
+        File f = a.getFile();
+        if (f != null && f.getName().endsWith(".pom")) {
+          pomFile = f;
+          break;
+        }
+      }
+      if (pomFile == null) {
+        continue; // no POM attached => cannot determine relocation
+      }
+
+      // Check for relocation in the POM
+      Coordinates target = readRelocationTarget(pomFile, node);
+      if (target == null) {
+        continue; // aggregator or normal module, keep as-is
+      }
+
+      // Find the target node in the graph by matching G:A:V (ignore classifier/extension)
+      Coordinates targetNode = null;
+      for (Coordinates candidate : graph.nodes()) {
+        if (candidate.getGroupId().equals(target.getGroupId())
+            && candidate.getArtifactId().equals(target.getArtifactId())
+            && candidate.getVersion().equals(target.getVersion())) {
+          // Prefer non-POM node if possible
+          if (targetNode == null) {
+            targetNode = candidate;
+          } else if (!"pom".equals(candidate.getExtension())
+              && "pom".equals(targetNode.getExtension())) {
+            targetNode = candidate;
+          }
+        }
+      }
+
+      if (targetNode == null) {
+        // Could not find the relocation target in the graph; be conservative and skip
+        continue;
+      }
+
+      // Rewire all predecessors of node to point to targetNode
+      for (Coordinates pred : new HashSet<>(graph.predecessors(node))) {
+        if (!pred.equals(targetNode)) {
+          graph.putEdge(pred, targetNode);
+        }
+      }
+
+      // Update conflicts that reference this node
+      Set<Conflict> toAdd = new HashSet<>();
+      Set<Conflict> toDrop = new HashSet<>();
+      for (Conflict c : conflicts) {
+        if (c.getResolved().equals(node)) {
+          toDrop.add(c);
+          toAdd.add(new Conflict(targetNode, c.getRequested()));
+        } else if (c.getRequested().equals(node)) {
+          toDrop.add(c);
+          toAdd.add(new Conflict(c.getResolved(), targetNode));
+        }
+      }
+      conflicts.removeAll(toDrop);
+      conflicts.addAll(toAdd);
+
+      // Remove any hash for the POM node
+      coordinateHashes.remove(node);
+
+      toRemove.add(node);
+    }
+
+    // Remove after iteration to avoid concurrent modification
+    for (Coordinates n : toRemove) {
+      graph.removeNode(n);
+    }
+  }
+
+  private Coordinates readRelocationTarget(File pomFile, Coordinates fallback) {
+    try (FileInputStream fis = new FileInputStream(pomFile);
+        BufferedInputStream bis = new BufferedInputStream(fis)) {
+      MavenXpp3Reader reader = new MavenXpp3Reader();
+      Model model = reader.read(ReaderFactory.newXmlReader(bis));
+      if (model.getDistributionManagement() != null) {
+        Relocation relocation = model.getDistributionManagement().getRelocation();
+        if (relocation != null) {
+          String g = relocation.getGroupId() != null ? relocation.getGroupId() : fallback.getGroupId();
+          String a = relocation.getArtifactId() != null ? relocation.getArtifactId() : fallback.getArtifactId();
+          String v = relocation.getVersion() != null ? relocation.getVersion() : fallback.getVersion();
+          return new Coordinates(g, a, fallback.getExtension(), fallback.getClassifier(), v);
+        }
+      }
+    } catch (IOException | XmlPullParserException e) {
+      // If parsing fails, treat as no relocation
+      if (isVerbose()) {
+        eventListener.onEvent(
+            new LogEvent(
+                "gradle",
+                "Failed to parse POM for relocation: " + pomFile,
+                e.getMessage()));
+      }
+    }
+    return null;
   }
 
   private Repository createRepository(URI uri) {
