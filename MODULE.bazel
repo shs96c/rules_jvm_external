@@ -63,7 +63,7 @@ _MAVEN_VERSION = "3.9.10"
 
 _MAVEN_RESOLVER_VERSION = "1.9.23"
 
-_GRADLE_VERSION = "8.13"
+_GRADLE_VERSION = "9.1.0"
 
 # NOTE: Please keep any changes to this maven.install in sync with the
 # definition in repositories.bzl
@@ -126,7 +126,7 @@ http_archive(
     name = "gradle",
     add_prefix = "gradle-bin",
     build_file = "//:gradle.BUILD.bazel",
-    integrity = "sha256-IPGxF2I3JUpvwgTYQ0GW+hGkz7OHVnUZxhVW6HEK7Xg=",
+    integrity = "sha256-oX3dhaJran9d23H/iwX8UQTAICxuZHgkKXkMkzaGyAY=",
     strip_prefix = "gradle-{}".format(_GRADLE_VERSION),
     url = "https://services.gradle.org/distributions/gradle-{}-bin.zip".format(_GRADLE_VERSION),
 )
