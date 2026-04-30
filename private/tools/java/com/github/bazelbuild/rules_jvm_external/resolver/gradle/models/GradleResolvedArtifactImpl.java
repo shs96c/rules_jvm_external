@@ -22,6 +22,7 @@ public class GradleResolvedArtifactImpl implements Serializable, GradleResolvedA
   private String classifier;
   private String extension;
   private File file;
+  private String variantDisplayName;
   private Map<String, String> variantAttributes;
 
   public GradleResolvedArtifactImpl() {}
@@ -38,6 +39,10 @@ public class GradleResolvedArtifactImpl implements Serializable, GradleResolvedA
     return this.file;
   }
 
+  public String getVariantDisplayName() {
+    return variantDisplayName;
+  }
+
   public Map<String, String> getVariantAttributes() {
     return variantAttributes;
   }
@@ -52,6 +57,10 @@ public class GradleResolvedArtifactImpl implements Serializable, GradleResolvedA
 
   public void setFile(File file) {
     this.file = file;
+  }
+
+  public void setVariantDisplayName(String variantDisplayName) {
+    this.variantDisplayName = variantDisplayName;
   }
 
   public void setVariantAttributes(Map<String, String> variantAttributes) {

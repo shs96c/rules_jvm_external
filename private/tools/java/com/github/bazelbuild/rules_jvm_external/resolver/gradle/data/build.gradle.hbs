@@ -1,4 +1,7 @@
 apply plugin: 'java'
+{{~#if usesTestFixtures}}
+apply plugin: 'java-test-fixtures'
+{{~/if}}
 
 repositories {
 {{~#if isUsingM2Local}}
@@ -27,7 +30,7 @@ dependencies {
     implementation platform("{{group}}:{{artifact}}:{{version}}")
 {{~/each}}
 {{~#each dependencies}}
-    implementation("{{group}}:{{artifact}}{{version}}{{~#if classifier}}{{classifier}}{{~/if}}{{~#if extension}}{{extension}}{{~/if}}"){{~#if exclusions}}{{~#if forceVersion}} {
+    implementation({{{notation}}}){{~#if exclusions}}{{~#if forceVersion}} {
 {{~#each exclusions}}
         exclude group: "{{group}}", module: "{{module}}"
 {{~/each}}

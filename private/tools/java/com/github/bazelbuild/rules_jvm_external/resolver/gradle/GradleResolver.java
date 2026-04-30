@@ -181,7 +181,7 @@ public class GradleResolver implements Resolver {
 
     for (GradleResolvedDependency dependency : implementationDependencies) {
       Set<Coordinates> visited = new HashSet<>();
-      for (GradleResolvedArtifact artifact : dependency.getArtifacts()) {
+      for (GradleResolvedArtifact artifact : artifactsForGraph(dependency)) {
         GradleCoordinates gradleCoordinates =
             new GradleCoordinatesImpl(
                 dependency.getGroup(),
@@ -331,6 +331,29 @@ public class GradleResolver implements Resolver {
     return group + ":" + artifact + ":" + version;
   }
 
+  private List<GradleResolvedArtifact> artifactsForGraph(GradleResolvedDependency dependency) {
+    String variantDisplayName = dependency.getVariantDisplayName();
+    if (variantDisplayName == null || !variantDisplayName.contains("testFixtures")) {
+      return dependency.getArtifacts();
+    }
+    boolean hasNonPomArtifact =
+        dependency.getArtifacts().stream().anyMatch(artifact -> !isPomArtifact(artifact));
+    if (!hasNonPomArtifact) {
+      return dependency.getArtifacts();
+    }
+    return dependency.getArtifacts().stream()
+        .filter(artifact -> !isPomArtifact(artifact))
+        .collect(Collectors.toList());
+  }
+
+  private boolean isPomArtifact(GradleResolvedArtifact artifact) {
+    File file = artifact.getFile();
+    if (file != null && file.getName().endsWith(".pom")) {
+      return true;
+    }
+    return "pom".equals(artifact.getExtension());
+  }
+
   private void addDependency(
       MutableGraph<Coordinates> graph,
       Coordinates parent,
@@ -347,7 +370,7 @@ public class GradleResolver implements Resolver {
 
     if (parentInfo.getChildren() != null) {
       for (GradleResolvedDependency childInfo : parentInfo.getChildren()) {
-        for (GradleResolvedArtifact childArtifact : childInfo.getArtifacts()) {
+        for (GradleResolvedArtifact childArtifact : artifactsForGraph(childInfo)) {
           GradleCoordinates childCoordinates =
               new GradleCoordinatesImpl(
                   childInfo.getGroup(),
@@ -370,6 +393,9 @@ public class GradleResolver implements Resolver {
           // Track artifact for child node
           artifactsByNode.computeIfAbsent(child, k -> new ArrayList<>()).add(childArtifact);
           graph.addNode(child);
+          if (parent.equals(child)) {
+            continue;
+          }
           graph.putEdge(parent, child);
           // if there's a conflict and the conflicting version isn't one that's actually requested
           // then it's an actual conflict we want to report

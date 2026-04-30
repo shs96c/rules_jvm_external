@@ -34,6 +34,10 @@ public interface GradleResolvedDependency {
 
   void setVersion(String version);
 
+  String getVariantDisplayName();
+
+  void setVariantDisplayName(String variantDisplayName);
+
   Set<String> getRequestedVersions();
 
   void addRequestedVersion(String requestedVersion);

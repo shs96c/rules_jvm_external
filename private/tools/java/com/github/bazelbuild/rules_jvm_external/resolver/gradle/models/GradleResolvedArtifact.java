@@ -25,6 +25,8 @@ public interface GradleResolvedArtifact {
 
   File getFile();
 
+  String getVariantDisplayName();
+
   // Currently unused, but can be used in the future to model gradle variants associated with
   // artifacts
   // useful for KMP especially
@@ -35,6 +37,8 @@ public interface GradleResolvedArtifact {
   void setExtension(String extension);
 
   void setFile(File file);
+
+  void setVariantDisplayName(String variantDisplayName);
 
   void setVariantAttributes(Map<String, String> variantAttributes);
 }

@@ -18,6 +18,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /** Represents a single dependency resolved by gradle */
@@ -25,6 +26,7 @@ public class GradleResolvedDependencyImpl implements Serializable, GradleResolve
   private String group;
   private String name;
   private String version;
+  private String variantDisplayName;
   private Set<String> requestedVersions;
   private boolean conflict;
   private List<GradleResolvedDependency> children;
@@ -59,6 +61,16 @@ public class GradleResolvedDependencyImpl implements Serializable, GradleResolve
 
   public void setVersion(String version) {
     this.version = version;
+  }
+
+  @Override
+  public String getVariantDisplayName() {
+    return variantDisplayName;
+  }
+
+  @Override
+  public void setVariantDisplayName(String variantDisplayName) {
+    this.variantDisplayName = variantDisplayName;
   }
 
   public Set<String> getRequestedVersions() {
@@ -105,6 +117,17 @@ public class GradleResolvedDependencyImpl implements Serializable, GradleResolve
 
   @Override
   public void addArtifact(GradleResolvedArtifact artifact) {
+    if (artifact.getFile() != null) {
+      for (GradleResolvedArtifact existing : artifacts) {
+        if (existing.getFile() != null
+            && existing.getFile().equals(artifact.getFile())
+            && Objects.equals(existing.getClassifier(), artifact.getClassifier())
+            && Objects.equals(existing.getExtension(), artifact.getExtension())
+            && Objects.equals(existing.getVariantDisplayName(), artifact.getVariantDisplayName())) {
+          return;
+        }
+      }
+    }
     this.artifacts.add(artifact);
   }
 }
