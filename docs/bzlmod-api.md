@@ -17,9 +17,9 @@ maven.install(<a href="#maven.install-name">name</a>, <a href="#maven.install-aa
               <a href="#maven.install-fail_if_repin_required">fail_if_repin_required</a>, <a href="#maven.install-fail_on_missing_checksum">fail_on_missing_checksum</a>, <a href="#maven.install-fetch_javadoc">fetch_javadoc</a>, <a href="#maven.install-fetch_sources">fetch_sources</a>,
               <a href="#maven.install-generate_compat_repositories">generate_compat_repositories</a>, <a href="#maven.install-ignore_empty_files">ignore_empty_files</a>, <a href="#maven.install-index_file">index_file</a>,
               <a href="#maven.install-known_contributing_modules">known_contributing_modules</a>, <a href="#maven.install-lock_file">lock_file</a>, <a href="#maven.install-repin_instructions">repin_instructions</a>, <a href="#maven.install-repositories">repositories</a>,
-              <a href="#maven.install-resolve_timeout">resolve_timeout</a>, <a href="#maven.install-resolver">resolver</a>, <a href="#maven.install-strict_visibility">strict_visibility</a>, <a href="#maven.install-strict_visibility_value">strict_visibility_value</a>,
-              <a href="#maven.install-use_credentials_from_home_netrc_file">use_credentials_from_home_netrc_file</a>, <a href="#maven.install-use_starlark_android_rules">use_starlark_android_rules</a>,
-              <a href="#maven.install-version_conflict_policy">version_conflict_policy</a>)
+              <a href="#maven.install-resolve_timeout">resolve_timeout</a>, <a href="#maven.install-resolver">resolver</a>, <a href="#maven.install-resolver_extra_dependencies">resolver_extra_dependencies</a>, <a href="#maven.install-strict_visibility">strict_visibility</a>,
+              <a href="#maven.install-strict_visibility_value">strict_visibility_value</a>, <a href="#maven.install-use_credentials_from_home_netrc_file">use_credentials_from_home_netrc_file</a>,
+              <a href="#maven.install-use_starlark_android_rules">use_starlark_android_rules</a>, <a href="#maven.install-version_conflict_policy">version_conflict_policy</a>)
 maven.override(<a href="#maven.override-name">name</a>, <a href="#maven.override-coordinates">coordinates</a>, <a href="#maven.override-target">target</a>, <a href="#maven.override-visibility">visibility</a>)
 </pre>
 
@@ -36,12 +36,12 @@ Modifies an artifact with `coordinates` defined in other tags with additional pr
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="maven.amend_artifact-name"></a>name |  -   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
-| <a id="maven.amend_artifact-coordinates"></a>coordinates |  Coordinates of the artifact to amend. Only `group:artifact` are used for matching.   | String | required |  |
-| <a id="maven.amend_artifact-exclusions"></a>exclusions |  Maven artifact tuples, in `artifactId:groupId` format   | List of strings | optional |  `[]`  |
-| <a id="maven.amend_artifact-force_version"></a>force_version |  -   | String | optional |  `""`  |
-| <a id="maven.amend_artifact-neverlink"></a>neverlink |  -   | String | optional |  `""`  |
-| <a id="maven.amend_artifact-testonly"></a>testonly |  -   | String | optional |  `""`  |
+| <a id="maven.amend_artifact-name"></a>name |  Name of the generated Maven repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
+| <a id="maven.amend_artifact-coordinates"></a>coordinates |  Maven artifact coordinates to amend. Only `groupId:artifactId` are used for matching.   | String | required |  |
+| <a id="maven.amend_artifact-exclusions"></a>exclusions |  Maven artifact coordinates to exclude, in `groupId:artifactId` format.   | List of strings | optional |  `[]`  |
+| <a id="maven.amend_artifact-force_version"></a>force_version |  Whether to force this artifact's version during dependency resolution. Leave empty to preserve the current value.   | String | optional |  `""`  |
+| <a id="maven.amend_artifact-neverlink"></a>neverlink |  Whether the generated target should be available only for compilation, not at runtime. Leave empty to preserve the current value.   | String | optional |  `""`  |
+| <a id="maven.amend_artifact-testonly"></a>testonly |  Whether the generated target should be marked test-only. Leave empty to preserve the current value.   | String | optional |  `""`  |
 
 <a id="maven.artifact"></a>
 
@@ -53,16 +53,16 @@ Used to define a single artifact where the simple coordinates are insufficient. 
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="maven.artifact-name"></a>name |  -   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
-| <a id="maven.artifact-artifact"></a>artifact |  -   | String | required |  |
-| <a id="maven.artifact-classifier"></a>classifier |  -   | String | optional |  `""`  |
-| <a id="maven.artifact-exclusions"></a>exclusions |  Maven artifact tuples, in `artifactId:groupId` format   | List of strings | optional |  `[]`  |
-| <a id="maven.artifact-force_version"></a>force_version |  -   | Boolean | optional |  `False`  |
-| <a id="maven.artifact-group"></a>group |  -   | String | required |  |
-| <a id="maven.artifact-neverlink"></a>neverlink |  -   | Boolean | optional |  `False`  |
-| <a id="maven.artifact-packaging"></a>packaging |  -   | String | optional |  `""`  |
-| <a id="maven.artifact-testonly"></a>testonly |  -   | Boolean | optional |  `False`  |
-| <a id="maven.artifact-version"></a>version |  -   | String | optional |  `""`  |
+| <a id="maven.artifact-name"></a>name |  Name of the generated Maven repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
+| <a id="maven.artifact-artifact"></a>artifact |  Maven artifact ID.   | String | required |  |
+| <a id="maven.artifact-classifier"></a>classifier |  Maven artifact classifier.   | String | optional |  `""`  |
+| <a id="maven.artifact-exclusions"></a>exclusions |  Maven artifact coordinates to exclude, in `groupId:artifactId` format.   | List of strings | optional |  `[]`  |
+| <a id="maven.artifact-force_version"></a>force_version |  Whether to force this artifact's version during dependency resolution.   | Boolean | optional |  `False`  |
+| <a id="maven.artifact-group"></a>group |  Maven group ID.   | String | required |  |
+| <a id="maven.artifact-neverlink"></a>neverlink |  Whether the generated target should be available only for compilation, not at runtime.   | Boolean | optional |  `False`  |
+| <a id="maven.artifact-packaging"></a>packaging |  Maven packaging type, such as `jar` or `aar`.   | String | optional |  `""`  |
+| <a id="maven.artifact-testonly"></a>testonly |  Whether the generated target should be marked test-only.   | Boolean | optional |  `False`  |
+| <a id="maven.artifact-version"></a>version |  Maven artifact version.   | String | optional |  `""`  |
 
 <a id="maven.from_toml"></a>
 
@@ -74,9 +74,9 @@ Allows a project to import dependencies from a Gradle format `libs.versions.toml
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="maven.from_toml-name"></a>name |  -   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
-| <a id="maven.from_toml-bom_modules"></a>bom_modules |  List of modules in `group:artifact` format to treat as BOMs, not artifacts   | List of strings | optional |  `[]`  |
-| <a id="maven.from_toml-libs_versions_toml"></a>libs_versions_toml |  Gradle `libs.versions.toml` file to use   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="maven.from_toml-name"></a>name |  Name of the generated Maven repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
+| <a id="maven.from_toml-bom_modules"></a>bom_modules |  Modules in `groupId:artifactId` format to treat as BOMs instead of artifacts.   | List of strings | optional |  `[]`  |
+| <a id="maven.from_toml-libs_versions_toml"></a>libs_versions_toml |  Gradle `libs.versions.toml` file to read.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 
 <a id="maven.install"></a>
 
@@ -88,33 +88,34 @@ Combines artifact and bom declarations with setting the location of lock files t
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="maven.install-name"></a>name |  -   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
-| <a id="maven.install-aar_import_bzl_label"></a>aar_import_bzl_label |  The label (as a string) to use to import aar_import from   | String | optional |  `"@rules_android//rules:rules.bzl"`  |
-| <a id="maven.install-additional_coursier_options"></a>additional_coursier_options |  Additional options that will be passed to coursier.   | List of strings | optional |  `[]`  |
-| <a id="maven.install-additional_netrc_lines"></a>additional_netrc_lines |  Additional lines prepended to the netrc file used by `http_file` (with `maven_install_json` only).   | List of strings | optional |  `[]`  |
-| <a id="maven.install-artifacts"></a>artifacts |  Maven artifact tuples, in `artifactId:groupId:version` format   | List of strings | optional |  `[]`  |
-| <a id="maven.install-boms"></a>boms |  Maven BOM tuples, in `artifactId:groupId:version` format   | List of strings | optional |  `[]`  |
-| <a id="maven.install-duplicate_version_warning"></a>duplicate_version_warning |  What to do if there are duplicate artifacts<br><br>If "error", then print a message and fail the build. If "warn", then print a warning and continue. If "none", then do nothing.   | String | optional |  `"warn"`  |
-| <a id="maven.install-excluded_artifacts"></a>excluded_artifacts |  Artifacts to exclude, in `artifactId:groupId` format. Only used on unpinned installs   | List of strings | optional |  `[]`  |
-| <a id="maven.install-exclusions"></a>exclusions |  Maven artifact tuples, in `artifactId:groupId` format   | List of strings | optional |  `[]`  |
-| <a id="maven.install-fail_if_repin_required"></a>fail_if_repin_required |  Whether to fail the build if the maven_artifact inputs have changed but the lock file has not been repinned.   | Boolean | optional |  `True`  |
-| <a id="maven.install-fail_on_missing_checksum"></a>fail_on_missing_checksum |  -   | Boolean | optional |  `True`  |
-| <a id="maven.install-fetch_javadoc"></a>fetch_javadoc |  -   | Boolean | optional |  `False`  |
-| <a id="maven.install-fetch_sources"></a>fetch_sources |  -   | Boolean | optional |  `False`  |
-| <a id="maven.install-generate_compat_repositories"></a>generate_compat_repositories |  Additionally generate repository aliases in a .bzl file for all JAR artifacts. For example, `@maven//:com_google_guava_guava` can also be referenced as `@com_google_guava_guava//jar`.   | Boolean | optional |  `False`  |
-| <a id="maven.install-ignore_empty_files"></a>ignore_empty_files |  Treat jars that are empty as if they were not found.   | Boolean | optional |  `False`  |
-| <a id="maven.install-index_file"></a>index_file |  If present, when dependencies are resolved this file will contain information the java gazelle plugin can use to more accurately construct build files. The default name should be `maven_index.json`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
-| <a id="maven.install-known_contributing_modules"></a>known_contributing_modules |  List of Bzlmod modules that are known to be contributing to this repository. Only honoured for the root module.   | List of strings | optional |  `[]`  |
-| <a id="maven.install-lock_file"></a>lock_file |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
-| <a id="maven.install-repin_instructions"></a>repin_instructions |  Instructions to re-pin the repository if required. Many people have wrapper scripts for keeping dependencies up to date, and would like to point users to that instead of the default. Only honoured for the root module.   | String | optional |  `""`  |
-| <a id="maven.install-repositories"></a>repositories |  -   | List of strings | optional |  `["https://repo1.maven.org/maven2"]`  |
-| <a id="maven.install-resolve_timeout"></a>resolve_timeout |  -   | Integer | optional |  `600`  |
-| <a id="maven.install-resolver"></a>resolver |  The resolver to use. Only honoured for the root module.   | String | optional |  `"coursier"`  |
-| <a id="maven.install-strict_visibility"></a>strict_visibility |  Controls visibility of transitive dependencies.<br><br>If "True", transitive dependencies are private and invisible to user's rules. If "False", transitive dependencies are public and visible to user's rules.   | Boolean | optional |  `False`  |
-| <a id="maven.install-strict_visibility_value"></a>strict_visibility_value |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `["@rules_jvm_external//visibility:private"]`  |
-| <a id="maven.install-use_credentials_from_home_netrc_file"></a>use_credentials_from_home_netrc_file |  Whether to pass machine login credentials from the ~/.netrc file to coursier.   | Boolean | optional |  `False`  |
-| <a id="maven.install-use_starlark_android_rules"></a>use_starlark_android_rules |  Whether to use the native or Starlark version of the Android rules.   | Boolean | optional |  `False`  |
-| <a id="maven.install-version_conflict_policy"></a>version_conflict_policy |  Policy for user-defined vs. transitive dependency version conflicts<br><br>If "pinned", choose the user-specified version in maven_install unconditionally. With the Gradle and Maven resolvers, this only applies to artifacts contributed by the root module. If "default", follow the selected resolver's default policy.   | String | optional |  `"default"`  |
+| <a id="maven.install-name"></a>name |  Name of the generated Maven repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
+| <a id="maven.install-aar_import_bzl_label"></a>aar_import_bzl_label |  Label, as a string, from which to load the `aar_import` rule.   | String | optional |  `"@rules_android//rules:rules.bzl"`  |
+| <a id="maven.install-additional_coursier_options"></a>additional_coursier_options |  Additional options passed to Coursier.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-additional_netrc_lines"></a>additional_netrc_lines |  Additional lines prepended to the netrc file used by `http_file`. Requires `lock_file`.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-artifacts"></a>artifacts |  Maven artifact coordinates in `groupId:artifactId:version` format.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-boms"></a>boms |  Maven BOM coordinates in `groupId:artifactId:version` format.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-duplicate_version_warning"></a>duplicate_version_warning |  What to do if there are duplicate artifacts.<br><br>If `error`, print a message and fail the build. If `warn`, print a warning and continue. If `none`, do nothing.   | String | optional |  `"warn"`  |
+| <a id="maven.install-excluded_artifacts"></a>excluded_artifacts |  Maven artifact coordinates in `groupId:artifactId` format to exclude from transitive dependencies.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-exclusions"></a>exclusions |  Unused. Use `excluded_artifacts` for global exclusions or an `artifact` tag for per-artifact exclusions.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-fail_if_repin_required"></a>fail_if_repin_required |  Whether to fail the build if the dependency inputs have changed but the lock file has not been repinned.   | Boolean | optional |  `True`  |
+| <a id="maven.install-fail_on_missing_checksum"></a>fail_on_missing_checksum |  Whether to fail resolution when an artifact has no checksum.   | Boolean | optional |  `True`  |
+| <a id="maven.install-fetch_javadoc"></a>fetch_javadoc |  Whether to fetch Javadoc JARs.   | Boolean | optional |  `False`  |
+| <a id="maven.install-fetch_sources"></a>fetch_sources |  Whether to fetch source JARs.   | Boolean | optional |  `False`  |
+| <a id="maven.install-generate_compat_repositories"></a>generate_compat_repositories |  Whether to generate repository aliases for all JAR artifacts. For example, `@maven//:com_google_guava_guava` can also be referenced as `@com_google_guava_guava//jar`.   | Boolean | optional |  `False`  |
+| <a id="maven.install-ignore_empty_files"></a>ignore_empty_files |  Whether to treat empty JARs as missing.   | Boolean | optional |  `False`  |
+| <a id="maven.install-index_file"></a>index_file |  File to update with dependency information for the Java Gazelle plugin. Conventionally named `maven_index.json`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+| <a id="maven.install-known_contributing_modules"></a>known_contributing_modules |  Bzlmod modules allowed to contribute to this repository. Only honored for the root module.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-lock_file"></a>lock_file |  Lock file to read and update when pinning, such as `//:maven_install.json`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+| <a id="maven.install-repin_instructions"></a>repin_instructions |  Custom instructions shown when repinning is required. Only honored for the root module.   | String | optional |  `""`  |
+| <a id="maven.install-repositories"></a>repositories |  Maven repository URLs, specified in lookup order. Supports HTTP Basic Authentication in the URL.   | List of strings | optional |  `["https://repo1.maven.org/maven2"]`  |
+| <a id="maven.install-resolve_timeout"></a>resolve_timeout |  Timeout, in seconds, for resolving and fetching artifacts.   | Integer | optional |  `600`  |
+| <a id="maven.install-resolver"></a>resolver |  Resolver to use. Only honored for the root module.   | String | optional |  `"coursier"`  |
+| <a id="maven.install-resolver_extra_dependencies"></a>resolver_extra_dependencies |  JARs or libraries added to the resolver classpath, such as custom `MetadataService` or `DownloadService` SPI implementations.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="maven.install-strict_visibility"></a>strict_visibility |  Controls visibility of transitive dependencies.<br><br>If true, transitive dependencies are private and invisible to user rules. If false, transitive dependencies are public and visible to user rules.   | Boolean | optional |  `False`  |
+| <a id="maven.install-strict_visibility_value"></a>strict_visibility_value |  Visibility applied to transitive dependencies when `strict_visibility` is true.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `["@rules_jvm_external//visibility:private"]`  |
+| <a id="maven.install-use_credentials_from_home_netrc_file"></a>use_credentials_from_home_netrc_file |  Whether to pass machine login credentials from `~/.netrc` to Coursier.   | Boolean | optional |  `False`  |
+| <a id="maven.install-use_starlark_android_rules"></a>use_starlark_android_rules |  Whether to use the Starlark Android rules instead of Bazel's native Android rules.   | Boolean | optional |  `False`  |
+| <a id="maven.install-version_conflict_policy"></a>version_conflict_policy |  Policy for user-defined vs. transitive dependency version conflicts<br><br>If `pinned`, choose the user-specified version in `maven.install` unconditionally. With the Gradle and Maven resolvers, this only applies to artifacts contributed by the root module. If `default`, follow the selected resolver's default policy.   | String | optional |  `"default"`  |
 
 <a id="maven.override"></a>
 
@@ -126,9 +127,9 @@ Allows specific maven coordinates to be redirected elsewhere. Commonly used to r
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="maven.override-name"></a>name |  -   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
-| <a id="maven.override-coordinates"></a>coordinates |  Maven artifact tuple in `artifactId:groupId` format   | String | required |  |
-| <a id="maven.override-target"></a>target |  Target to use in place of maven coordinates   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
-| <a id="maven.override-visibility"></a>visibility |  Visibility of the generated alias target   | List of strings | optional |  `[]`  |
+| <a id="maven.override-name"></a>name |  Name of the generated Maven repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | optional |  `"maven"`  |
+| <a id="maven.override-coordinates"></a>coordinates |  Maven artifact coordinates in `groupId:artifactId` format.   | String | required |  |
+| <a id="maven.override-target"></a>target |  Target to use in place of the Maven artifact.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="maven.override-visibility"></a>visibility |  Visibility of the generated alias target.   | List of strings | optional |  `[]`  |
 
 
