@@ -217,7 +217,7 @@ def _generate_compat_repos(name, existing_compat_repos, artifacts):
 
     return seen
 
-def _deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only_artifacts = False):
+def deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only_artifacts = False):
     coordinate_to_artifact = {}
     for bazel_dep_name in bazel_dep_to_non_root_artifacts:
         for artifact in bazel_dep_to_non_root_artifacts.get(bazel_dep_name, []):
@@ -242,9 +242,9 @@ def _deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only
 #
 # This can be typical for the default @maven namespace, if a bzlmod dependency
 # wishes to contribute to the users' jars.
-def _deduplicate_artifacts_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts, repin_env_var, rje_verbose_env_var):
+def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts, repin_env_var, rje_verbose_env_var):
     """Deduplicate artifacts, giving priority to root module artifacts with force_version set."""
-    non_root_coordinate_to_artifact = _deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts)
+    non_root_coordinate_to_artifact = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts)
 
     duplicate_artifact_warning = ""
     filtered_non_root_artifacts = []
@@ -739,7 +739,7 @@ def maven_impl(mctx):
                         if k not in bazel_dep_to_non_root_boms.keys():
                             print("\nINFO: The @%s repo is not using boms from %s because it is not in the known_contributing_modules" % (repo_name, k))
 
-            merged_repo["artifacts"] = _deduplicate_artifacts_with_root_priority(
+            merged_repo["artifacts"] = merge_with_root_priority(
                 repo_name,
                 root_artifacts,
                 bazel_dep_to_non_root_artifacts,
@@ -747,7 +747,7 @@ def maven_impl(mctx):
                 rje_verbose_env_var,
             )
 
-            merged_repo["boms"] = _deduplicate_artifacts_with_root_priority(
+            merged_repo["boms"] = merge_with_root_priority(
                 repo_name,
                 root_boms,
                 bazel_dep_to_non_root_boms,
@@ -755,8 +755,8 @@ def maven_impl(mctx):
                 rje_verbose_env_var,
             )
         else:
-            merged_repo["artifacts"] = _deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, True)
-            merged_repo["boms"] = _deduplicate_non_root_artifacts(bazel_dep_to_non_root_boms, True)
+            merged_repo["artifacts"] = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, True)
+            merged_repo["boms"] = deduplicate_non_root_artifacts(bazel_dep_to_non_root_boms, True)
 
         # For list attributes, concatenate but avoid duplicates (root items first)
         for list_attr in ["repositories", "excluded_artifacts", "additional_netrc_lines"]:
