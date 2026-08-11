@@ -172,43 +172,96 @@ for matching.
 
 ## Module dependency layering
 
-In order to allow modules to collaborate on required dependencies, the `bzlmod` extension will
-collect the artifacts from all tags with the same `name` attribute together before performing a
-dependency resolution. You'll know this is happening because a message will be printed to inform
-you which modules are contributing to which namespace:
+The extension collects declarations from all tags with the same `name` before resolving them. Each
+name is an independent Maven repository namespace. Declarations in one namespace never affect
+another namespace.
+
+The root module and its dependencies have different roles during layering. The root contributes
+the declarations that belong to the current Bazel project. Every other module is a non-root
+contributor. Coordinates are matched by `group:artifact`, with non-default packaging and classifiers
+included in the key. For example, a classified JAR layers independently of its unclassified JAR.
+
+### Version precedence
+
+The current layering rules are:
+
+| # | Declarations for one coordinate | Layering behaviour |
+|---|---|---|
+| 1 | Root only | The root declaration is retained. |
+| 2 | Root and non-root, with no `force_version` | A lower or equal non-root declaration is discarded. A higher non-root declaration is retained alongside the root declaration and the resolver chooses between them. Coursier and Gradle choose the highest version, while the Maven resolver chooses the root version because it uses the first direct declaration and root declarations are first. `duplicate_version_warning = "error"` fails before resolution when both versions survive. |
+| 3 | Unforced root and forced non-root | The non-root declaration is retained only when its version is strictly higher. A lower or equal declaration is silently discarded, including its force flag. This means an equal non-root declaration does not pin the coordinate against a transitive upgrade. |
+| 4 | Forced root and forced non-root | The root declaration is retained and the non-root declaration is discarded. |
+| 5 | One non-root module only | Its declaration is retained. A non-root artifact marked `testonly` is filtered out. |
+| 6 | Multiple non-root modules, with no force | The highest version is retained. Equal versions keep the first module's complete declaration, including exclusions and flags. |
+| 7 | Forced root and unforced non-root | The root declaration is retained, regardless of version. |
+| 8 | Multiple non-root modules force different versions | The declarations are silently collapsed to the highest version instead of failing. The winning declaration's flags are retained. A still-higher unforced declaration can therefore replace a lower forced declaration and remove the force. |
+
+Rules 3 and 8 are current limitations: a non-root force does not take precedence over an unforced
+root in every case, and conflicting non-root forces do not report an error.
+
+"Highest" uses the Maven `ComparableVersion` ordering implemented by
+`private/rules/maven_version.bzl`, not lexical string ordering. Non-root deduplication uses this
+ordering before declarations are compared with the root.
+
+Rule 2 is resolver-dependent because the extension passes both declarations to the resolver when
+the non-root version is higher. Coursier uses its default highest-version reconciliation. Gradle
+also selects the highest version. The Maven resolver normalises duplicate direct
+`group:artifact` declarations to the first version, which is the root version.
+
+`version_conflict_policy = "pinned"` changes this interaction. For the Gradle and Maven resolvers,
+root artifacts are force-marked before layering, so the root wins even against a higher forced
+non-root declaration. For Coursier, the layering step is unchanged and every surviving direct
+version is later passed as a `--force-version` argument.
+
+The `force_version` flag can be set by an `artifact` tag, an `amend_artifact` tag, or a regular
+artifact read by `from_toml`. Coordinates in `install.artifacts` cannot carry the flag. BOMs use the
+same extension-layer precedence rules as artifacts, but a BOM can only gain `force_version` through
+`amend_artifact`. A TOML BOM is returned before the TOML force field is copied. Resolver requests do
+not propagate a BOM force flag, so it affects extension-layer priority only.
+
+### Contributors and configuration
+
+When the root and other modules contribute artifacts to the same namespace, the extension prints a
+message such as:
 
 `The maven repository 'multiple_lock_files' has contributions from multiple bzlmod modules, and will be resolved together: ["bzlmod_lock_files", "rules_jvm_external"]`
 
-In the root module, if this is expected and known, you can disable this warning by adding
-the list of modules to the `known_contributing_modules` attribute of the `install` tag. The entry
-to add will be printed for you as part of the warning. Once you set a value for `known_contributing_modules` then only those modules will be allowed to contribute dependencies.
+If those contributions are expected, set `known_contributing_modules` on the root `install` tag.
+The warning includes the value to add. Once this attribute is non-empty, only listed modules may
+contribute artifacts or BOMs to that namespace. A module that contributes only BOMs does not trigger
+the contribution warning.
 
-The default name used is `maven`. Modules that are expected to be included via a `bazel_dep` should
-avoid using the default name, and should always set their own (eg. `rules_jvm_external` uses
-`rules_jvm_external_deps` for its own dependencies) The exception to this is where a module provides
-functionality that would otherwise be obtained using a maven dependency.
+After dependencies are layered, scalar `install` attributes from the root module take precedence.
+List attributes are combined root-first, while preserving their existing deduplication or
+concatenation behaviour.
 
-Put another way, only projects that are only ever going to be used as root modules should use the
-default name.
+The default namespace is `maven`. A module intended for use through `bazel_dep` should normally use
+its own name, such as the `rules_jvm_external_deps` namespace used by this project. The default is
+appropriate when a module deliberately contributes functionality that would otherwise be supplied
+as a Maven dependency, or when the project is only used as the root module.
 
-The message is printed so that should you need to understand why a particular dependency or
-transitive dependency is at an unexpected version you'll have the information you need to diagnose
-the problem.
+### Diagnostics
 
-When dependencies are layered in this way, you may see a warning similar to:
+Layering keeps the following diagnostics so that unexpected versions can be traced to their
+contributing module:
 
-```
-"WARNING: The following maven modules appear in multiple sub-modules with potentially different versions. Consider adding one of these to your root module to ensure consistent versions:
-    com.google.guava:guava (31.1-jre, 33.2.1-jre)
-```
+| Condition | Behaviour |
+|---|---|
+| An unacknowledged non-root module contributes artifacts | Always prints the contribution warning. |
+| `known_contributing_modules` excludes an artifact or BOM contributor | Prints an `INFO` message when `RJE_VERBOSE` is set. |
+| A higher non-root version survives alongside the root version | Prints the root-version warning when `REPIN` or `RULES_JVM_EXTERNAL_REPIN` is set. |
+| A non-root-only coordinate is added | Prints an `INFO` message when a repin variable and `RJE_VERBOSE` are both set. |
+| Multiple versions reach the repository rule | `duplicate_version_warning` controls whether to warn, fail, or do nothing. Its default is `warn`. |
 
-The resolver will use the highest version artifact from the root and sub-modules. If the root version is not the highest you will see a warning during repinning similar to:
+The repository-level duplicate check keys declarations by `group:artifact` and optional classifier,
+but not packaging. Packaging-distinct declarations at different versions can therefore warn or fail
+even though the extension layers them independently.
+
+For example, the root-version warning is:
 
 ```
 WARNING: For dependency 'com.google.protobuf:protobuf-java' the root @maven repo wants version 3.25.5, but got 4.27.2 from the bazel_worker_java bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.
 ```
-
-You can either update the version in the root module to the highest version or set `force_version = True` in the root module to ensure that version will be the one used in the dependency resolution.
 
 ## Known issues
 
