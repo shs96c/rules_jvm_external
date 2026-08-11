@@ -1,11 +1,11 @@
-# Basic functions
+# Rules and macros API
 
-These are the basic functions to get started.
+These symbols are exported from `@rules_jvm_external//:defs.bzl`.
 
-To use these functions, load them at the top of your BUILD file. For example:
+Load the symbols you need at the top of your BUILD file. For example:
 
 ```python
-load("@rules_jvm_external//:defs.bzl", "maven_install", "artifact")
+load("@rules_jvm_external//:defs.bzl", "java_export", "maven_bom")
 ```
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
@@ -182,73 +182,3 @@ Generated rules:
 | <a id="maven_bom-testonly"></a>testonly |  <p align="center"> - </p>   |  `None` |
 | <a id="maven_bom-visibility"></a>visibility |  <p align="center"> - </p>   |  `None` |
 | <a id="maven_bom-toolchains"></a>toolchains |  <p align="center"> - </p>   |  `[]` |
-
-
-<a id="maven_install"></a>
-
-## maven_install
-
-<pre>
-load("@rules_jvm_external//:defs.bzl", "maven_install")
-
-maven_install(<a href="#maven_install-name">name</a>, <a href="#maven_install-repositories">repositories</a>, <a href="#maven_install-artifacts">artifacts</a>, <a href="#maven_install-boms">boms</a>, <a href="#maven_install-resolver">resolver</a>, <a href="#maven_install-fail_on_missing_checksum">fail_on_missing_checksum</a>,
-              <a href="#maven_install-fetch_sources">fetch_sources</a>, <a href="#maven_install-fetch_javadoc">fetch_javadoc</a>, <a href="#maven_install-excluded_artifacts">excluded_artifacts</a>, <a href="#maven_install-generate_compat_repositories">generate_compat_repositories</a>,
-              <a href="#maven_install-version_conflict_policy">version_conflict_policy</a>, <a href="#maven_install-maven_install_json">maven_install_json</a>, <a href="#maven_install-override_targets">override_targets</a>, <a href="#maven_install-strict_visibility">strict_visibility</a>,
-              <a href="#maven_install-strict_visibility_value">strict_visibility_value</a>, <a href="#maven_install-resolve_timeout">resolve_timeout</a>, <a href="#maven_install-additional_netrc_lines">additional_netrc_lines</a>,
-              <a href="#maven_install-use_credentials_from_home_netrc_file">use_credentials_from_home_netrc_file</a>, <a href="#maven_install-fail_if_repin_required">fail_if_repin_required</a>,
-              <a href="#maven_install-use_starlark_android_rules">use_starlark_android_rules</a>, <a href="#maven_install-aar_import_bzl_label">aar_import_bzl_label</a>, <a href="#maven_install-duplicate_version_warning">duplicate_version_warning</a>,
-              <a href="#maven_install-repin_instructions">repin_instructions</a>, <a href="#maven_install-ignore_empty_files">ignore_empty_files</a>, <a href="#maven_install-additional_coursier_options">additional_coursier_options</a>)
-</pre>
-
-Resolves and fetches artifacts transitively from Maven repositories.
-
-This macro runs a repository rule that invokes the Coursier CLI to resolve
-and fetch Maven artifacts transitively.
-
-
-**PARAMETERS**
-
-
-| Name  | Description | Default Value |
-| :------------- | :------------- | :------------- |
-| <a id="maven_install-name"></a>name |  A unique name for this Bazel external repository.   |  `"maven"` |
-| <a id="maven_install-repositories"></a>repositories |  A list of Maven repository URLs, specified in lookup order.<br><br>Supports URLs with HTTP Basic Authentication, e.g. "https://username:password@example.com".   |  `[]` |
-| <a id="maven_install-artifacts"></a>artifacts |  A list of Maven artifact coordinates in the form of `group:artifact:version`.   |  `[]` |
-| <a id="maven_install-boms"></a>boms |  A list of Maven artifact coordinates in the form of `group:artifact:version` which refer to Maven BOMs.   |  `[]` |
-| <a id="maven_install-resolver"></a>resolver |  Which resolver to use. One of `coursier`, `gradle` or `maven`.   |  `"coursier"` |
-| <a id="maven_install-fail_on_missing_checksum"></a>fail_on_missing_checksum |  fail the fetch if checksum attributes are not present.   |  `True` |
-| <a id="maven_install-fetch_sources"></a>fetch_sources |  Additionally fetch source JARs.   |  `False` |
-| <a id="maven_install-fetch_javadoc"></a>fetch_javadoc |  Additionally fetch javadoc JARs.   |  `False` |
-| <a id="maven_install-excluded_artifacts"></a>excluded_artifacts |  A list of Maven artifact coordinates in the form of `group:artifact` to be excluded from the transitive dependencies.   |  `[]` |
-| <a id="maven_install-generate_compat_repositories"></a>generate_compat_repositories |  Additionally generate repository aliases in a .bzl file for all JAR artifacts. For example, `@maven//:com_google_guava_guava` can also be referenced as `@com_google_guava_guava//jar`.   |  `False` |
-| <a id="maven_install-version_conflict_policy"></a>version_conflict_policy |  Policy for user-defined vs. transitive dependency version conflicts.  If "pinned", choose the user's version unconditionally.  If "default", follow Coursier's default policy.   |  `"default"` |
-| <a id="maven_install-maven_install_json"></a>maven_install_json |  A label to a `maven_install.json` file to use pinned artifacts for generating build targets. e.g `//:maven_install.json`.   |  `None` |
-| <a id="maven_install-override_targets"></a>override_targets |  A mapping of `group:artifact` to Bazel target labels. All occurrences of the target label for `group:artifact` will be an alias to the specified label, therefore overriding the original generated `jvm_import` or `aar_import` target.   |  `{}` |
-| <a id="maven_install-strict_visibility"></a>strict_visibility |  Controls visibility of transitive dependencies. If `True`, transitive dependencies are private and invisible to user's rules. If `False`, transitive dependencies are public and visible to user's rules.   |  `False` |
-| <a id="maven_install-strict_visibility_value"></a>strict_visibility_value |  Allows changing transitive dependencies strict visibility scope from private to specified scopes list.   |  `["//visibility:private"]` |
-| <a id="maven_install-resolve_timeout"></a>resolve_timeout |  The execution timeout of resolving and fetching artifacts.   |  `600` |
-| <a id="maven_install-additional_netrc_lines"></a>additional_netrc_lines |  Additional lines prepended to the netrc file used by `http_file` (with `maven_install_json` only).   |  `[]` |
-| <a id="maven_install-use_credentials_from_home_netrc_file"></a>use_credentials_from_home_netrc_file |  Whether to pass machine login credentials from the ~/.netrc file to coursier.   |  `False` |
-| <a id="maven_install-fail_if_repin_required"></a>fail_if_repin_required |  Whether to fail the build if the required maven artifacts have been changed but not repinned. Requires the `maven_install_json` to have been set.   |  `True` |
-| <a id="maven_install-use_starlark_android_rules"></a>use_starlark_android_rules |  Whether to use the native or Starlark version of the Android rules. Default is False if the running version of Bazel supports native aar_import. If the running version of Bazel does not support native aar_import, this parameter is ignored and the Starlark Android rules is used.   |  `False` |
-| <a id="maven_install-aar_import_bzl_label"></a>aar_import_bzl_label |  The label (as a string) to use to import aar_import from. This is usually needed only if the top-level workspace file does not use the typical default repository name to import the Android Starlark rules. Default is "@rules_android//rules:rules.bzl".   |  `"@rules_android//rules:rules.bzl"` |
-| <a id="maven_install-duplicate_version_warning"></a>duplicate_version_warning |  What to do if an artifact is specified multiple times. If "error" then fail the build, if "warn" then print a message and continue, if "none" then do nothing. The default is "warn".   |  `"warn"` |
-| <a id="maven_install-repin_instructions"></a>repin_instructions |  Instructions to re-pin dependencies in your repository. Will be shown when re-pinning is required.   |  `None` |
-| <a id="maven_install-ignore_empty_files"></a>ignore_empty_files |  Treat jars that are empty as if they were not found.   |  `False` |
-| <a id="maven_install-additional_coursier_options"></a>additional_coursier_options |  Additional options that will be passed to coursier.   |  `[]` |
-
-
-# Maven specification functions
-
-These are helper functions to specify more information about Maven artifacts and
-repositories in `maven_install`.
-
-To use these functions, load the `maven` struct at the top of your BUILD file:
-
-```python
-load("@rules_jvm_external//:specs.bzl", "maven")
-```
-<!-- Generated with Stardoc: http://skydoc.bazel.build -->
-
-
-

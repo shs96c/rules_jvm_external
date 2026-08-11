@@ -131,5 +131,3 @@ Allows specific maven coordinates to be redirected elsewhere. Commonly used to r
 | <a id="maven.override-coordinates"></a>coordinates |  Maven artifact coordinates in `groupId:artifactId` format.   | String | required |  |
 | <a id="maven.override-target"></a>target |  Target to use in place of the Maven artifact.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 | <a id="maven.override-visibility"></a>visibility |  Visibility of the generated alias target.   | List of strings | optional |  `[]`  |
-
-
