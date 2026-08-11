@@ -1,11 +1,15 @@
 """Tests for dependency layering across bzlmod modules."""
 
+load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:partial.bzl", "partial")
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load(
     "//private/lib:layering.bzl",
     "deduplicate_non_root_artifacts",
+    "filter_known_contributing_modules",
+    "layer_maven_namespace",
     "merge_with_root_priority",
+    "should_print_diagnostic",
 )
 
 def _artifact(
@@ -15,10 +19,12 @@ def _artifact(
         neverlink = False,
         exclusions = None,
         packaging = None,
-        classifier = None):
-    return struct(
+        classifier = None,
         group = "com.example",
-        artifact = "library",
+        artifact = "library"):
+    return struct(
+        group = group,
+        artifact = artifact,
         version = version,
         packaging = packaging,
         classifier = classifier,
@@ -28,13 +34,36 @@ def _artifact(
         exclusions = exclusions or [],
     )
 
-def _merge(root_artifacts, bazel_dep_to_non_root_artifacts):
+def _merge_result(root_artifacts, bazel_dep_to_non_root_artifacts):
     return merge_with_root_priority(
         "maven",
         root_artifacts,
         bazel_dep_to_non_root_artifacts,
-        False,
-        False,
+    )
+
+def _merge(root_artifacts, bazel_dep_to_non_root_artifacts):
+    return _merge_result(root_artifacts, bazel_dep_to_non_root_artifacts).artifacts
+
+def _layer(
+        name = "maven",
+        root_present = True,
+        root_artifacts = None,
+        root_boms = None,
+        resolver = "coursier",
+        version_conflict_policy = "default",
+        known_contributing_modules = None,
+        non_root_artifacts = None,
+        non_root_boms = None):
+    return layer_maven_namespace(
+        name = name,
+        root_present = root_present,
+        root_artifacts = root_artifacts or [],
+        root_boms = root_boms or [],
+        resolver = resolver,
+        version_conflict_policy = version_conflict_policy,
+        known_contributing_modules = known_contributing_modules or sets.make(),
+        bazel_dep_to_non_root_artifacts = non_root_artifacts or {},
+        bazel_dep_to_non_root_boms = non_root_boms or {},
     )
 
 def _root_only_resolves_root_version_impl(ctx):
@@ -62,7 +91,17 @@ def _nonroot_higher_version_keeps_both_impl(ctx):
     root = _artifact("1.0")
     non_root = _artifact("2.0")
 
-    asserts.equals(env, [root, non_root], _merge([root], {"dep": [non_root]}))
+    result = _merge_result([root], {"dep": [non_root]})
+
+    asserts.equals(env, [root, non_root], result.artifacts)
+    asserts.equals(
+        env,
+        [struct(
+            text = "\nWARNING: For dependency 'com.example:library' the root @maven repo wants version 1.0, but got 2.0 from the dep bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.",
+            gate = "repin",
+        )],
+        result.diagnostics,
+    )
 
     return unittest.end(env)
 
@@ -249,6 +288,256 @@ def _higher_unforced_nonroot_erases_force_impl(ctx):
 
 higher_unforced_nonroot_erases_force_test = unittest.make(_higher_unforced_nonroot_erases_force_impl)
 
+def _namespace_without_root_uses_nonroot_dedup_impl(ctx):
+    env = unittest.begin(ctx)
+    higher = _artifact("2.0")
+
+    result = _layer(
+        root_present = False,
+        non_root_artifacts = {
+            "first": [_artifact("1.0")],
+            "second": [higher],
+        },
+    )
+
+    asserts.equals(env, [higher], result.artifacts)
+    asserts.equals(env, [], result.boms)
+    asserts.equals(env, [], result.diagnostics)
+
+    return unittest.end(env)
+
+namespace_without_root_uses_nonroot_dedup_test = unittest.make(_namespace_without_root_uses_nonroot_dedup_impl)
+
+def _known_contributors_filter_deps_and_boms_impl(ctx):
+    env = unittest.begin(ctx)
+    kept_artifact = _artifact("1.0")
+    kept_bom = _artifact("1.0", packaging = "pom", artifact = "bom")
+
+    artifacts = filter_known_contributing_modules(
+        "custom",
+        sets.make(["kept"]),
+        {"kept": [kept_artifact], "excluded-dep": [_artifact("2.0")]},
+        "deps",
+    )
+    boms = filter_known_contributing_modules(
+        "custom",
+        sets.make(["kept"]),
+        {"kept": [kept_bom], "excluded-bom": [_artifact("2.0", packaging = "pom", artifact = "bom")]},
+        "boms",
+    )
+
+    asserts.equals(env, {"kept": [kept_artifact]}, artifacts.filtered)
+    asserts.equals(env, {"kept": [kept_bom]}, boms.filtered)
+    asserts.equals(
+        env,
+        [struct(
+            text = "\nINFO: The @custom repo is not using deps from excluded-dep because it is not in the known_contributing_modules",
+            gate = "verbose",
+        )],
+        artifacts.diagnostics,
+    )
+    asserts.equals(
+        env,
+        [struct(
+            text = "\nINFO: The @custom repo is not using boms from excluded-bom because it is not in the known_contributing_modules",
+            gate = "verbose",
+        )],
+        boms.diagnostics,
+    )
+
+    return unittest.end(env)
+
+known_contributors_filter_deps_and_boms_test = unittest.make(_known_contributors_filter_deps_and_boms_impl)
+
+def _bom_only_contributor_does_not_warn_about_modules_impl(ctx):
+    env = unittest.begin(ctx)
+    bom = _artifact("1.0", packaging = "pom", artifact = "bom")
+
+    result = _layer(non_root_boms = {"dep": [bom]})
+
+    asserts.equals(env, [bom], result.boms)
+    asserts.equals(
+        env,
+        [struct(
+            text = "\nINFO: The @maven repo is getting the additional artifact com.example:bom:1.0 from the dep bazel dep.",
+            gate = "repin_verbose",
+        )],
+        result.diagnostics,
+    )
+
+    return unittest.end(env)
+
+bom_only_contributor_does_not_warn_about_modules_test = unittest.make(_bom_only_contributor_does_not_warn_about_modules_impl)
+
+def _boms_merge_with_root_priority_impl(ctx):
+    env = unittest.begin(ctx)
+    root = _artifact("1.0", packaging = "pom", artifact = "bom", force_version = True)
+
+    result = _layer(
+        root_boms = [root],
+        non_root_boms = {"dep": [_artifact("2.0", packaging = "pom", artifact = "bom")]},
+    )
+
+    asserts.equals(env, [root], result.boms)
+
+    return unittest.end(env)
+
+boms_merge_with_root_priority_test = unittest.make(_boms_merge_with_root_priority_impl)
+
+def _classifier_and_packaging_layer_independently_impl(ctx):
+    env = unittest.begin(ctx)
+    plain = _artifact("1.0")
+    classified = _artifact("2.0", classifier = "tests")
+    pom = _artifact("3.0", packaging = "pom")
+
+    result = _layer(
+        root_present = False,
+        non_root_artifacts = {"dep": [plain, classified, pom]},
+    )
+
+    asserts.equals(env, [plain, classified, pom], result.artifacts)
+
+    return unittest.end(env)
+
+classifier_and_packaging_layer_independently_test = unittest.make(_classifier_and_packaging_layer_independently_impl)
+
+def _pinned_gradle_root_beats_higher_nonroot_force_impl(ctx):
+    env = unittest.begin(ctx)
+    root = _artifact("1.0")
+
+    result = _layer(
+        root_artifacts = [root],
+        resolver = "gradle",
+        version_conflict_policy = "pinned",
+        non_root_artifacts = {"dep": [_artifact("2.0", force_version = True)]},
+    )
+
+    asserts.equals(env, ["1.0"], [artifact.version for artifact in result.artifacts])
+    asserts.true(env, result.artifacts[0].force_version)
+
+    return unittest.end(env)
+
+pinned_gradle_root_beats_higher_nonroot_force_test = unittest.make(_pinned_gradle_root_beats_higher_nonroot_force_impl)
+
+def _namespaces_are_layered_independently_impl(ctx):
+    env = unittest.begin(ctx)
+
+    first = _layer(
+        name = "first",
+        root_present = False,
+        non_root_artifacts = {"dep": [_artifact("1.0")]},
+    )
+    second = _layer(
+        name = "second",
+        root_present = False,
+        non_root_artifacts = {"dep": [_artifact("2.0")]},
+    )
+
+    asserts.equals(env, ["1.0"], [artifact.version for artifact in first.artifacts])
+    asserts.equals(env, ["2.0"], [artifact.version for artifact in second.artifacts])
+
+    return unittest.end(env)
+
+namespaces_are_layered_independently_test = unittest.make(_namespaces_are_layered_independently_impl)
+
+def _diagnostics_preserve_text_gates_and_order_impl(ctx):
+    env = unittest.begin(ctx)
+    root_artifact = _artifact("1.0")
+    root_bom = _artifact("1.0", packaging = "pom", artifact = "bom")
+    kept_artifacts = [
+        _artifact("2.0"),
+        _artifact("1.0", artifact = "additional"),
+    ]
+    kept_boms = [
+        _artifact("2.0", packaging = "pom", artifact = "bom"),
+        _artifact("1.0", packaging = "pom", artifact = "additional-bom"),
+    ]
+
+    result = _layer(
+        name = "custom",
+        root_artifacts = [root_artifact],
+        root_boms = [root_bom],
+        known_contributing_modules = sets.make(["kept"]),
+        non_root_artifacts = {
+            "kept": kept_artifacts,
+            "excluded-dep": [_artifact("3.0")],
+        },
+        non_root_boms = {
+            "kept": kept_boms,
+            "excluded-bom": [_artifact("3.0", packaging = "pom", artifact = "bom")],
+        },
+    )
+
+    asserts.equals(
+        env,
+        [
+            struct(text = "\nINFO: The @custom repo is not using deps from excluded-dep because it is not in the known_contributing_modules", gate = "verbose"),
+            struct(text = "\nINFO: The @custom repo is not using boms from excluded-bom because it is not in the known_contributing_modules", gate = "verbose"),
+            struct(text = "\nWARNING: For dependency 'com.example:library' the root @custom repo wants version 1.0, but got 2.0 from the kept bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.", gate = "repin"),
+            struct(text = "\nINFO: The @custom repo is getting the additional artifact com.example:additional:1.0 from the kept bazel dep.", gate = "repin_verbose"),
+            struct(text = "\nWARNING: For dependency 'com.example:bom' the root @custom repo wants version 1.0, but got 2.0 from the kept bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.", gate = "repin"),
+            struct(text = "\nINFO: The @custom repo is getting the additional artifact com.example:additional-bom:1.0 from the kept bazel dep.", gate = "repin_verbose"),
+        ],
+        result.diagnostics,
+    )
+
+    return unittest.end(env)
+
+diagnostics_preserve_text_gates_and_order_test = unittest.make(_diagnostics_preserve_text_gates_and_order_impl)
+
+def _default_namespace_contribution_warning_is_preserved_impl(ctx):
+    env = unittest.begin(ctx)
+
+    result = _layer(non_root_artifacts = {"dep": [_artifact("1.0")]})
+
+    asserts.equals(
+        env,
+        [struct(
+            text = "The maven repository 'maven' has contributions from multiple bzlmod modules, and will be resolved together: [\"dep\"].\nSee https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md#module-dependency-layering for more information. \n To suppress this warning review the contributions from the other modules and add the following attribute in the root MODULE.bazel file: \nmaven.install(\n  known_contributing_modules = [\"dep\"],\n  ...\n)",
+            gate = "always",
+        ), struct(
+            text = "\nINFO: The @maven repo is getting the additional artifact com.example:library:1.0 from the dep bazel dep.",
+            gate = "repin_verbose",
+        )],
+        result.diagnostics,
+    )
+
+    return unittest.end(env)
+
+default_namespace_contribution_warning_is_preserved_test = unittest.make(_default_namespace_contribution_warning_is_preserved_impl)
+
+def _diagnostic_gates_match_environment_flags_impl(ctx):
+    env = unittest.begin(ctx)
+    diagnostics = {
+        gate: struct(text = gate, gate = gate)
+        for gate in ["always", "repin", "verbose", "repin_verbose"]
+    }
+
+    asserts.equals(
+        env,
+        [True, False, False, False],
+        [should_print_diagnostic(diagnostics[gate], False, False) for gate in diagnostics],
+    )
+    asserts.equals(
+        env,
+        [True, True, False, False],
+        [should_print_diagnostic(diagnostics[gate], True, False) for gate in diagnostics],
+    )
+    asserts.equals(
+        env,
+        [True, False, True, False],
+        [should_print_diagnostic(diagnostics[gate], False, True) for gate in diagnostics],
+    )
+    asserts.equals(
+        env,
+        [True, True, True, True],
+        [should_print_diagnostic(diagnostics[gate], True, True) for gate in diagnostics],
+    )
+
+    return unittest.end(env)
+
+diagnostic_gates_match_environment_flags_test = unittest.make(_diagnostic_gates_match_environment_flags_impl)
+
 def layering_test_suite():
     unittest.suite(
         "layering_tests",
@@ -266,4 +555,14 @@ def layering_test_suite():
         partial.make(root_force_beats_higher_unforced_nonroot_test, size = "small"),
         partial.make(conflicting_nonroot_forces_silently_pick_highest_test, size = "small"),
         partial.make(higher_unforced_nonroot_erases_force_test, size = "small"),
+        partial.make(namespace_without_root_uses_nonroot_dedup_test, size = "small"),
+        partial.make(known_contributors_filter_deps_and_boms_test, size = "small"),
+        partial.make(bom_only_contributor_does_not_warn_about_modules_test, size = "small"),
+        partial.make(boms_merge_with_root_priority_test, size = "small"),
+        partial.make(classifier_and_packaging_layer_independently_test, size = "small"),
+        partial.make(pinned_gradle_root_beats_higher_nonroot_force_test, size = "small"),
+        partial.make(namespaces_are_layered_independently_test, size = "small"),
+        partial.make(diagnostics_preserve_text_gates_and_order_test, size = "small"),
+        partial.make(default_namespace_contribution_warning_is_preserved_test, size = "small"),
+        partial.make(diagnostic_gates_match_environment_flags_test, size = "small"),
     )

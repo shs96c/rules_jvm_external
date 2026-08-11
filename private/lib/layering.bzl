@@ -6,23 +6,38 @@ load("//private/rules:maven_version.bzl", "compare_maven_versions")
 
 DEFAULT_NAME = "maven"
 
-def warn_if_multiple_contributing_modules(repo, repo_name, non_root_bazel_dep_to_artifacts):
-    known_contributing_modules = repo.get("known_contributing_modules", sets.make())
+def _diagnostic(text, gate):
+    return struct(text = text, gate = gate)
+
+def should_print_diagnostic(diagnostic, repin, verbose):
+    """Whether a layering diagnostic is enabled for the current environment."""
+    return (
+        diagnostic.gate == "always" or
+        (diagnostic.gate == "repin" and repin) or
+        (diagnostic.gate == "verbose" and verbose) or
+        (diagnostic.gate == "repin_verbose" and repin and verbose)
+    )
+
+def contributing_modules_warning(repo_name, known_contributing_modules, non_root_bazel_dep_to_artifacts):
+    """Returns the warning for contributions from modules not acknowledged by the root."""
     contributing_module_names = non_root_bazel_dep_to_artifacts.keys()
     new_contributing_modules = sets.difference(sets.make(contributing_module_names), known_contributing_modules)
     if sets.length(new_contributing_modules) > 0:
-        print("The maven repository '%s' has contributions from multiple bzlmod modules, and will be resolved together: %s." % (
-                  repo_name,
-                  sorted(contributing_module_names),
-              ) + "\nSee https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md#module-dependency-layering" +
-              " for more information. \n" +
-              " To suppress this warning review the contributions from the other modules and add the following attribute" +
-              " in the root MODULE.bazel file: \n" +
-              "maven.install(\n" +
-              ("  name = \"{0}\"\n".format(repo_name) if repo_name != DEFAULT_NAME else "") +
-              "  known_contributing_modules = {0},\n".format(sorted(contributing_module_names)) +
-              "  ...\n" +
-              ")")
+        return (
+            "The maven repository '%s' has contributions from multiple bzlmod modules, and will be resolved together: %s." % (
+                repo_name,
+                sorted(contributing_module_names),
+            ) + "\nSee https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md#module-dependency-layering" +
+            " for more information. \n" +
+            " To suppress this warning review the contributions from the other modules and add the following attribute" +
+            " in the root MODULE.bazel file: \n" +
+            "maven.install(\n" +
+            ("  name = \"{0}\"\n".format(repo_name) if repo_name != DEFAULT_NAME else "") +
+            "  known_contributing_modules = {0},\n".format(sorted(contributing_module_names)) +
+            "  ...\n" +
+            ")"
+        )
+    return None
 
 def deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only_artifacts = False):
     coordinate_to_artifact = {}
@@ -49,7 +64,7 @@ def deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only_
 #
 # This can be typical for the default @maven namespace, if a bzlmod dependency
 # wishes to contribute to the users' jars.
-def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts, repin_env_var, rje_verbose_env_var):
+def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts):
     """Deduplicate artifacts, giving priority to root module artifacts with force_version set."""
     non_root_coordinate_to_artifact = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts)
 
@@ -77,14 +92,97 @@ def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifac
         )
         filtered_non_root_artifacts.append(non_root_artifact)
 
-    if repin_env_var:
-        if duplicate_artifact_warning != "":
-            print(duplicate_artifact_warning)
-        if rje_verbose_env_var:
-            if addtional_artifact_message != "":
-                print(addtional_artifact_message)
+    diagnostics = []
+    if duplicate_artifact_warning != "":
+        diagnostics.append(_diagnostic(duplicate_artifact_warning, "repin"))
+    if addtional_artifact_message != "":
+        diagnostics.append(_diagnostic(addtional_artifact_message, "repin_verbose"))
 
-    return root_artifacts + filtered_non_root_artifacts
+    return struct(
+        artifacts = root_artifacts + filtered_non_root_artifacts,
+        diagnostics = diagnostics,
+    )
+
+def filter_known_contributing_modules(name, known_contributing_modules, bazel_dep_to_items, item_kind):
+    """Filters contributions to modules acknowledged by the root."""
+    all_non_root_modules = bazel_dep_to_items.keys()
+    filtered = {
+        module: bazel_dep_to_items[module]
+        for module in sets.to_list(known_contributing_modules)
+        if module in bazel_dep_to_items
+    }
+    diagnostics = []
+    for module in all_non_root_modules:
+        if module not in filtered:
+            diagnostics.append(_diagnostic(
+                "\nINFO: The @%s repo is not using %s from %s because it is not in the known_contributing_modules" % (name, item_kind, module),
+                "verbose",
+            ))
+    return struct(filtered = filtered, diagnostics = diagnostics)
+
+def layer_maven_namespace(
+        name,
+        root_present,
+        root_artifacts,
+        root_boms,
+        resolver,
+        version_conflict_policy,
+        known_contributing_modules,
+        bazel_dep_to_non_root_artifacts,
+        bazel_dep_to_non_root_boms):
+    """Layers the dependency declarations for one Maven repository namespace."""
+    root_artifacts = apply_root_version_conflict_policy(
+        root_artifacts,
+        resolver,
+        version_conflict_policy,
+    )
+    diagnostics = []
+
+    if not root_present:
+        return struct(
+            artifacts = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, True),
+            boms = deduplicate_non_root_artifacts(bazel_dep_to_non_root_boms, True),
+            diagnostics = diagnostics,
+        )
+
+    if sets.length(known_contributing_modules) == 0:
+        warning = contributing_modules_warning(
+            name,
+            known_contributing_modules,
+            bazel_dep_to_non_root_artifacts,
+        )
+        if warning:
+            diagnostics.append(_diagnostic(warning, "always"))
+    else:
+        filtered_artifacts = filter_known_contributing_modules(
+            name,
+            known_contributing_modules,
+            bazel_dep_to_non_root_artifacts,
+            "deps",
+        )
+        bazel_dep_to_non_root_artifacts = filtered_artifacts.filtered
+        diagnostics.extend(filtered_artifacts.diagnostics)
+
+        filtered_boms = filter_known_contributing_modules(
+            name,
+            known_contributing_modules,
+            bazel_dep_to_non_root_boms,
+            "boms",
+        )
+        bazel_dep_to_non_root_boms = filtered_boms.filtered
+        diagnostics.extend(filtered_boms.diagnostics)
+
+    artifacts = merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts)
+    diagnostics.extend(artifacts.diagnostics)
+
+    boms = merge_with_root_priority(name, root_boms, bazel_dep_to_non_root_boms)
+    diagnostics.extend(boms.diagnostics)
+
+    return struct(
+        artifacts = artifacts.artifacts,
+        boms = boms.artifacts,
+        diagnostics = diagnostics,
+    )
 
 def remove_fields(s):
     """Used for reducing an artifact struct down to only those fields that have values"""

@@ -13,11 +13,9 @@ load("//private/lib:coordinates.bzl", "to_external_form", "unpack_coordinates")
 load(
     "//private/lib:layering.bzl",
     "DEFAULT_NAME",
-    "apply_root_version_conflict_policy",
-    "deduplicate_non_root_artifacts",
-    "merge_with_root_priority",
+    "layer_maven_namespace",
     "remove_fields",
-    "warn_if_multiple_contributing_modules",
+    "should_print_diagnostic",
 )
 load("//private/rules:coursier.bzl", "DEFAULT_AAR_IMPORT_LABEL", "coursier_fetch", "pinned_coursier_fetch")
 load("//private/rules:unpinned_maven_pin_command_alias.bzl", "unpinned_maven_pin_command_alias")
@@ -516,6 +514,11 @@ def concat_coursier_options(root_list, non_root_list):
     """
     return root_list + non_root_list
 
+def _print_layering_diagnostics(diagnostics, repin_env_var, rje_verbose_env_var):
+    for diagnostic in diagnostics:
+        if should_print_diagnostic(diagnostic, repin_env_var, rje_verbose_env_var):
+            print(diagnostic.text)
+
 def maven_impl(mctx):
     repos = {}
     overrides = {}
@@ -570,62 +573,20 @@ def maven_impl(mctx):
         merged_repo.update(non_root_repo)
         merged_repo.update(root_repo)
 
-        # Special handling for artifacts and boms - deduplicate with root priority
-        root_artifacts = apply_root_version_conflict_policy(
-            root_repo.get("artifacts", []),
-            root_repo.get("resolver", _DEFAULT_RESOLVER),
-            root_repo.get("version_conflict_policy", "default"),
+        layered = layer_maven_namespace(
+            name = repo_name,
+            root_present = repo_name in root_module_repos,
+            root_artifacts = root_repo.get("artifacts", []),
+            root_boms = root_repo.get("boms", []),
+            resolver = root_repo.get("resolver", _DEFAULT_RESOLVER),
+            version_conflict_policy = root_repo.get("version_conflict_policy", "default"),
+            known_contributing_modules = root_repo.get("known_contributing_modules", sets.make()),
+            bazel_dep_to_non_root_artifacts = non_root_repo.get("bazel_dep_to_artifacts", {}),
+            bazel_dep_to_non_root_boms = non_root_repo.get("bazel_dep_to_boms", {}),
         )
-        bazel_dep_to_non_root_artifacts = non_root_repo.get("bazel_dep_to_artifacts", {})
-        root_boms = root_repo.get("boms", [])
-        bazel_dep_to_non_root_boms = non_root_repo.get("bazel_dep_to_boms", {})
-
-        if repo_name in root_module_repos.keys():
-            known_contributing_modules = root_repo.get("known_contributing_modules", sets.make())
-            if sets.length(known_contributing_modules) == 0:
-                # Warn users if multiple modules contribute to the same maven `name`
-                warn_if_multiple_contributing_modules(root_repo, repo_name, bazel_dep_to_non_root_artifacts)
-            else:
-                # Filter results so only modules in the known_contributing_modules add artifacts or boms
-                all_non_root_artifact_modules = bazel_dep_to_non_root_artifacts.keys()
-                bazel_dep_to_non_root_artifacts = {
-                    k: bazel_dep_to_non_root_artifacts[k]
-                    for k in sets.to_list(known_contributing_modules)
-                    if k in bazel_dep_to_non_root_artifacts
-                }
-                if rje_verbose_env_var:
-                    for k in all_non_root_artifact_modules:
-                        if k not in bazel_dep_to_non_root_artifacts.keys():
-                            print("\nINFO: The @%s repo is not using deps from %s because it is not in the known_contributing_modules" % (repo_name, k))
-                all_non_root_bom_modules = bazel_dep_to_non_root_boms.keys()
-                bazel_dep_to_non_root_boms = {
-                    k: bazel_dep_to_non_root_boms[k]
-                    for k in sets.to_list(known_contributing_modules)
-                    if k in bazel_dep_to_non_root_boms
-                }
-                if rje_verbose_env_var:
-                    for k in all_non_root_bom_modules:
-                        if k not in bazel_dep_to_non_root_boms.keys():
-                            print("\nINFO: The @%s repo is not using boms from %s because it is not in the known_contributing_modules" % (repo_name, k))
-
-            merged_repo["artifacts"] = merge_with_root_priority(
-                repo_name,
-                root_artifacts,
-                bazel_dep_to_non_root_artifacts,
-                repin_env_var,
-                rje_verbose_env_var,
-            )
-
-            merged_repo["boms"] = merge_with_root_priority(
-                repo_name,
-                root_boms,
-                bazel_dep_to_non_root_boms,
-                repin_env_var,
-                rje_verbose_env_var,
-            )
-        else:
-            merged_repo["artifacts"] = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, True)
-            merged_repo["boms"] = deduplicate_non_root_artifacts(bazel_dep_to_non_root_boms, True)
+        merged_repo["artifacts"] = layered.artifacts
+        merged_repo["boms"] = layered.boms
+        _print_layering_diagnostics(layered.diagnostics, repin_env_var, rje_verbose_env_var)
 
         # For list attributes, concatenate but avoid duplicates (root items first)
         for list_attr in ["repositories", "excluded_artifacts", "additional_netrc_lines"]:
