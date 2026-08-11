@@ -189,7 +189,7 @@ def _warn_if_multiple_contributing_modules(repo, repo_name, non_root_bazel_dep_t
         print("The maven repository '%s' has contributions from multiple bzlmod modules, and will be resolved together: %s." % (
                   repo_name,
                   sorted(contributing_module_names),
-              ) + "\nSee https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md#module-dependency-layering" +
+              ) + "\nSee https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/module-dependency-layering.md" +
               " for more information. \n" +
               " To suppress this warning review the contributions from the other modules and add the following attribute" +
               " in the root MODULE.bazel file: \n" +
