@@ -107,47 +107,49 @@ def _nonroot_higher_version_keeps_both_impl(ctx):
 
 nonroot_higher_version_keeps_both_test = unittest.make(_nonroot_higher_version_keeps_both_impl)
 
-def _nonroot_force_higher_survives_with_force_impl(ctx):
+def _higher_nonroot_force_beats_unforced_root_impl(ctx):
     env = unittest.begin(ctx)
     root = _artifact("1.0")
     non_root = _artifact("2.0", force_version = True)
 
-    # A forced non-root declaration currently survives only when it is higher than the root.
-    asserts.equals(env, [root, non_root], _merge([root], {"dep": [non_root]}))
-    asserts.true(env, _merge([root], {"dep": [non_root]})[1].force_version)
+    result = _merge_result([root], {"dep": [non_root]})
+
+    asserts.equals(env, [non_root], result.artifacts)
+    asserts.true(env, result.artifacts[0].force_version)
+    asserts.equals(env, "repin", result.diagnostics[0].gate)
 
     return unittest.end(env)
 
-nonroot_force_higher_survives_with_force_test = unittest.make(_nonroot_force_higher_survives_with_force_impl)
+higher_nonroot_force_beats_unforced_root_test = unittest.make(_higher_nonroot_force_beats_unforced_root_impl)
 
-def _nonroot_force_lower_is_silently_dropped_impl(ctx):
+def _lower_nonroot_force_beats_unforced_root_impl(ctx):
     env = unittest.begin(ctx)
     root = _artifact("2.0")
+    non_root = _artifact("1.0", force_version = True)
 
-    # A lower forced non-root declaration is currently dropped without a diagnostic.
-    asserts.equals(
-        env,
-        [root],
-        _merge([root], {"dep": [_artifact("1.0", force_version = True)]}),
-    )
+    result = _merge_result([root], {"dep": [non_root]})
+
+    asserts.equals(env, [non_root], result.artifacts)
+    asserts.equals(env, "repin", result.diagnostics[0].gate)
 
     return unittest.end(env)
 
-nonroot_force_lower_is_silently_dropped_test = unittest.make(_nonroot_force_lower_is_silently_dropped_impl)
+lower_nonroot_force_beats_unforced_root_test = unittest.make(_lower_nonroot_force_beats_unforced_root_impl)
 
-def _nonroot_force_equal_loses_transitive_pin_impl(ctx):
+def _equal_nonroot_force_retains_transitive_pin_impl(ctx):
     env = unittest.begin(ctx)
     root = _artifact("1.0")
+    non_root = _artifact("1.0", force_version = True)
 
-    merged = _merge([root], {"dep": [_artifact("1.0", force_version = True)]})
+    result = _merge_result([root], {"dep": [non_root]})
 
-    # An equal forced non-root declaration currently loses its transitive pin.
-    asserts.equals(env, [root], merged)
-    asserts.false(env, merged[0].force_version)
+    asserts.equals(env, [non_root], result.artifacts)
+    asserts.true(env, result.artifacts[0].force_version)
+    asserts.equals(env, [], result.diagnostics)
 
     return unittest.end(env)
 
-nonroot_force_equal_loses_transitive_pin_test = unittest.make(_nonroot_force_equal_loses_transitive_pin_impl)
+equal_nonroot_force_retains_transitive_pin_test = unittest.make(_equal_nonroot_force_retains_transitive_pin_impl)
 
 def _both_forced_root_wins_impl(ctx):
     env = unittest.begin(ctx)
@@ -544,9 +546,9 @@ def layering_test_suite():
         partial.make(root_only_resolves_root_version_test, size = "small"),
         partial.make(nonroot_lower_version_is_dropped_test, size = "small"),
         partial.make(nonroot_higher_version_keeps_both_test, size = "small"),
-        partial.make(nonroot_force_higher_survives_with_force_test, size = "small"),
-        partial.make(nonroot_force_lower_is_silently_dropped_test, size = "small"),
-        partial.make(nonroot_force_equal_loses_transitive_pin_test, size = "small"),
+        partial.make(higher_nonroot_force_beats_unforced_root_test, size = "small"),
+        partial.make(lower_nonroot_force_beats_unforced_root_test, size = "small"),
+        partial.make(equal_nonroot_force_retains_transitive_pin_test, size = "small"),
         partial.make(both_forced_root_wins_test, size = "small"),
         partial.make(single_nonroot_survives_test, size = "small"),
         partial.make(testonly_nonroot_is_filtered_test, size = "small"),

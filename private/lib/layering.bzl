@@ -69,20 +69,30 @@ def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifac
     non_root_coordinate_to_artifact = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts)
 
     duplicate_artifact_warning = ""
+    filtered_root_artifacts = []
     filtered_non_root_artifacts = []
     for root_artifact in root_artifacts:
+        keep_root_artifact = True
         artifact_key = to_key(root_artifact)
         if artifact_key in non_root_coordinate_to_artifact:
             bazel_dep_name, non_root_artifact = non_root_coordinate_to_artifact.pop(artifact_key)
             if not getattr(root_artifact, "force_version", False):
-                # prioritize highest version
-                if compare_maven_versions(root_artifact.version, non_root_artifact.version) == -1:
+                comparison = compare_maven_versions(root_artifact.version, non_root_artifact.version)
+                non_root_forced = getattr(non_root_artifact, "force_version", False)
+                if non_root_forced:
+                    keep_root_artifact = False
                     filtered_non_root_artifacts.append(non_root_artifact)
+                elif comparison == -1:
+                    filtered_non_root_artifacts.append(non_root_artifact)
+
+                if comparison != 0 and (non_root_forced or comparison == -1):
                     duplicate_artifact_warning = duplicate_artifact_warning + (
                         "\nWARNING: For dependency '%s:%s' the root @%s repo wants version %s, " % (root_artifact.group, root_artifact.artifact, name, root_artifact.version) +
                         "but got %s from the %s bazel dep. " % (non_root_artifact.version, bazel_dep_name) +
                         "Please update the version in your MODULE.bazel or set `force_version = True`."
                     )
+        if keep_root_artifact:
+            filtered_root_artifacts.append(root_artifact)
 
     # Add any remaining non root artifacts that weren't found in the root artifact list
     addtional_artifact_message = ""
@@ -99,7 +109,7 @@ def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifac
         diagnostics.append(_diagnostic(addtional_artifact_message, "repin_verbose"))
 
     return struct(
-        artifacts = root_artifacts + filtered_non_root_artifacts,
+        artifacts = filtered_root_artifacts + filtered_non_root_artifacts,
         diagnostics = diagnostics,
     )
 

@@ -189,15 +189,14 @@ The current layering rules are:
 |---|---|---|
 | 1 | Root only | The root declaration is retained. |
 | 2 | Root and non-root, with no `force_version` | A lower or equal non-root declaration is discarded. A higher non-root declaration is retained alongside the root declaration and the resolver chooses between them. Coursier and Gradle choose the highest version, while the Maven resolver chooses the root version because it uses the first direct declaration and root declarations are first. `duplicate_version_warning = "error"` fails before resolution when both versions survive. |
-| 3 | Unforced root and forced non-root | The non-root declaration is retained only when its version is strictly higher. A lower or equal declaration is silently discarded, including its force flag. This means an equal non-root declaration does not pin the coordinate against a transitive upgrade. |
+| 3 | Unforced root and forced non-root | The non-root declaration is retained and the root declaration is discarded, regardless of version. An equal non-root declaration therefore retains its pin against a transitive upgrade. |
 | 4 | Forced root and forced non-root | The root declaration is retained and the non-root declaration is discarded. |
 | 5 | One non-root module only | Its declaration is retained. A non-root artifact marked `testonly` is filtered out. |
 | 6 | Multiple non-root modules, with no force | The highest version is retained. Equal versions keep the first module's complete declaration, including exclusions and flags. |
 | 7 | Forced root and unforced non-root | The root declaration is retained, regardless of version. |
 | 8 | Multiple non-root modules force different versions | The declarations are silently collapsed to the highest version instead of failing. The winning declaration's flags are retained. A still-higher unforced declaration can therefore replace a lower forced declaration and remove the force. |
 
-Rules 3 and 8 are current limitations: a non-root force does not take precedence over an unforced
-root in every case, and conflicting non-root forces do not report an error.
+Rule 8 is a current limitation: conflicting non-root forces do not report an error.
 
 "Highest" uses the Maven `ComparableVersion` ordering implemented by
 `private/rules/maven_version.bzl`, not lexical string ordering. Non-root deduplication uses this
@@ -249,7 +248,7 @@ contributing module:
 |---|---|
 | An unacknowledged non-root module contributes artifacts | Always prints the contribution warning. |
 | `known_contributing_modules` excludes an artifact or BOM contributor | Prints an `INFO` message when `RJE_VERBOSE` is set. |
-| A higher non-root version survives alongside the root version | Prints the root-version warning when `REPIN` or `RULES_JVM_EXTERNAL_REPIN` is set. |
+| A higher unforced non-root version survives alongside the root version, or a differently versioned forced non-root replaces it | Prints the root-version warning when `REPIN` or `RULES_JVM_EXTERNAL_REPIN` is set. |
 | A non-root-only coordinate is added | Prints an `INFO` message when a repin variable and `RJE_VERBOSE` are both set. |
 | Multiple versions reach the repository rule | `duplicate_version_warning` controls whether to warn, fail, or do nothing. Its default is `warn`. |
 
