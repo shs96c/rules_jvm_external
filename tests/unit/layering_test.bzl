@@ -2,7 +2,7 @@
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:partial.bzl", "partial")
-load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load(
     "//private/lib:layering.bzl",
     "deduplicate_non_root_artifacts",
@@ -165,6 +165,20 @@ def _both_forced_root_wins_impl(ctx):
 
 both_forced_root_wins_test = unittest.make(_both_forced_root_wins_impl)
 
+def _root_force_beats_conflicting_nonroot_forces_impl(ctx):
+    env = unittest.begin(ctx)
+    root = _artifact("3.0", force_version = True)
+
+    asserts.equals(
+        env,
+        [root],
+        _merge([root], _conflicting_nonroot_forces()),
+    )
+
+    return unittest.end(env)
+
+root_force_beats_conflicting_nonroot_forces_test = unittest.make(_root_force_beats_conflicting_nonroot_forces_impl)
+
 def _single_nonroot_survives_impl(ctx):
     env = unittest.begin(ctx)
     non_root = _artifact("1.0")
@@ -248,18 +262,61 @@ def _root_force_beats_higher_unforced_nonroot_impl(ctx):
 
 root_force_beats_higher_unforced_nonroot_test = unittest.make(_root_force_beats_higher_unforced_nonroot_impl)
 
-def _conflicting_nonroot_forces_silently_pick_highest_impl(ctx):
-    env = unittest.begin(ctx)
-    higher = _artifact("2.0", force_version = True)
+def _conflicting_nonroot_forces():
+    return {
+        "first": [_artifact("1.0", force_version = True)],
+        "second": [_artifact("2.0", force_version = True)],
+    }
 
-    # Conflicting non-root forces currently resolve without a diagnostic.
+def _conflicting_nonroot_forces_target_impl(_ctx):
+    deduplicate_non_root_artifacts(_conflicting_nonroot_forces(), return_only_artifacts = True)
+    return []
+
+conflicting_nonroot_forces_target = rule(implementation = _conflicting_nonroot_forces_target_impl)
+
+def _unforced_root_with_conflicting_nonroot_forces_target_impl(_ctx):
+    merge_with_root_priority(
+        "maven",
+        [_artifact("3.0")],
+        _conflicting_nonroot_forces(),
+    )
+    return []
+
+unforced_root_with_conflicting_nonroot_forces_target = rule(
+    implementation = _unforced_root_with_conflicting_nonroot_forces_target_impl,
+)
+
+def _conflicting_nonroot_forces_fail_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    asserts.expect_failure(
+        env,
+        "Conflicting forced versions for dependency 'com.example:library': first wants 1.0, second wants 2.0. Add an `artifact` tag to the root module at the version you want and set `force_version = True`.",
+    )
+
+    return analysistest.end(env)
+
+conflicting_nonroot_forces_fail_test = analysistest.make(
+    _conflicting_nonroot_forces_fail_impl,
+    expect_failure = True,
+)
+
+unforced_root_with_conflicting_nonroot_forces_fail_test = analysistest.make(
+    _conflicting_nonroot_forces_fail_impl,
+    expect_failure = True,
+)
+
+def _matching_nonroot_forces_keep_first_module_impl(ctx):
+    env = unittest.begin(ctx)
+    first = _artifact("1.0", force_version = True, neverlink = True)
+
     asserts.equals(
         env,
-        [higher],
+        [first],
         deduplicate_non_root_artifacts(
             {
-                "first": [_artifact("1.0", force_version = True)],
-                "second": [higher],
+                "first": [first],
+                "second": [_artifact("1.0", force_version = True)],
             },
             return_only_artifacts = True,
         ),
@@ -267,7 +324,7 @@ def _conflicting_nonroot_forces_silently_pick_highest_impl(ctx):
 
     return unittest.end(env)
 
-conflicting_nonroot_forces_silently_pick_highest_test = unittest.make(_conflicting_nonroot_forces_silently_pick_highest_impl)
+matching_nonroot_forces_keep_first_module_test = unittest.make(_matching_nonroot_forces_keep_first_module_impl)
 
 def _higher_unforced_nonroot_erases_force_impl(ctx):
     env = unittest.begin(ctx)
@@ -541,6 +598,16 @@ def _diagnostic_gates_match_environment_flags_impl(ctx):
 diagnostic_gates_match_environment_flags_test = unittest.make(_diagnostic_gates_match_environment_flags_impl)
 
 def layering_test_suite():
+    conflicting_nonroot_forces_target(
+        name = "conflicting_nonroot_forces_target",
+        # This target must only be analysed through the expected-failure test.
+        tags = ["manual"],
+    )
+    unforced_root_with_conflicting_nonroot_forces_target(
+        name = "unforced_root_with_conflicting_nonroot_forces_target",
+        # This target must only be analysed through the expected-failure test.
+        tags = ["manual"],
+    )
     unittest.suite(
         "layering_tests",
         partial.make(root_only_resolves_root_version_test, size = "small"),
@@ -550,12 +617,21 @@ def layering_test_suite():
         partial.make(lower_nonroot_force_beats_unforced_root_test, size = "small"),
         partial.make(equal_nonroot_force_retains_transitive_pin_test, size = "small"),
         partial.make(both_forced_root_wins_test, size = "small"),
+        partial.make(root_force_beats_conflicting_nonroot_forces_test, size = "small"),
         partial.make(single_nonroot_survives_test, size = "small"),
         partial.make(testonly_nonroot_is_filtered_test, size = "small"),
         partial.make(multiple_nonroot_highest_wins_test, size = "small"),
         partial.make(equal_version_tie_keeps_first_module_metadata_test, size = "small"),
         partial.make(root_force_beats_higher_unforced_nonroot_test, size = "small"),
-        partial.make(conflicting_nonroot_forces_silently_pick_highest_test, size = "small"),
+        partial.make(
+            conflicting_nonroot_forces_fail_test,
+            target_under_test = ":conflicting_nonroot_forces_target",
+        ),
+        partial.make(
+            unforced_root_with_conflicting_nonroot_forces_fail_test,
+            target_under_test = ":unforced_root_with_conflicting_nonroot_forces_target",
+        ),
+        partial.make(matching_nonroot_forces_keep_first_module_test, size = "small"),
         partial.make(higher_unforced_nonroot_erases_force_test, size = "small"),
         partial.make(namespace_without_root_uses_nonroot_dedup_test, size = "small"),
         partial.make(known_contributors_filter_deps_and_boms_test, size = "small"),

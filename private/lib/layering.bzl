@@ -39,12 +39,35 @@ def contributing_modules_warning(repo_name, known_contributing_modules, non_root
         )
     return None
 
-def deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only_artifacts = False):
+def deduplicate_non_root_artifacts(
+        bazel_dep_to_non_root_artifacts,
+        return_only_artifacts = False,
+        root_forced_artifact_keys = None):
+    root_forced_artifact_keys = root_forced_artifact_keys or {}
     coordinate_to_artifact = {}
+    coordinate_to_forced_artifact = {}
     for bazel_dep_name in bazel_dep_to_non_root_artifacts:
         for artifact in bazel_dep_to_non_root_artifacts.get(bazel_dep_name, []):
             if not getattr(artifact, "testonly", False):
                 artifact_key = to_key(artifact)
+
+                if getattr(artifact, "force_version", False) and artifact_key not in root_forced_artifact_keys:
+                    previous_force = coordinate_to_forced_artifact.get(artifact_key)
+                    if previous_force:
+                        previous_bazel_dep_name, previous_artifact = previous_force
+                        if previous_bazel_dep_name != bazel_dep_name and compare_maven_versions(previous_artifact.version, artifact.version) != 0:
+                            fail(
+                                "Conflicting forced versions for dependency '%s': %s wants %s, %s wants %s. " % (
+                                    artifact_key,
+                                    previous_bazel_dep_name,
+                                    previous_artifact.version,
+                                    bazel_dep_name,
+                                    artifact.version,
+                                ) +
+                                "Add an `artifact` tag to the root module at the version you want and set `force_version = True`.",
+                            )
+                    else:
+                        coordinate_to_forced_artifact[artifact_key] = (bazel_dep_name, artifact)
 
                 # prioritize highest version
                 if artifact_key in coordinate_to_artifact:
@@ -66,7 +89,15 @@ def deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts, return_only_
 # wishes to contribute to the users' jars.
 def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts):
     """Deduplicate artifacts, giving priority to root module artifacts with force_version set."""
-    non_root_coordinate_to_artifact = deduplicate_non_root_artifacts(bazel_dep_to_non_root_artifacts)
+    root_forced_artifact_keys = {
+        to_key(artifact): True
+        for artifact in root_artifacts
+        if getattr(artifact, "force_version", False)
+    }
+    non_root_coordinate_to_artifact = deduplicate_non_root_artifacts(
+        bazel_dep_to_non_root_artifacts,
+        root_forced_artifact_keys = root_forced_artifact_keys,
+    )
 
     duplicate_artifact_warning = ""
     filtered_root_artifacts = []

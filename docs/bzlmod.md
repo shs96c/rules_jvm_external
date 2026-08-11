@@ -194,9 +194,10 @@ The current layering rules are:
 | 5 | One non-root module only | Its declaration is retained. A non-root artifact marked `testonly` is filtered out. |
 | 6 | Multiple non-root modules, with no force | The highest version is retained. Equal versions keep the first module's complete declaration, including exclusions and flags. |
 | 7 | Forced root and unforced non-root | The root declaration is retained, regardless of version. |
-| 8 | Multiple non-root modules force different versions | The declarations are silently collapsed to the highest version instead of failing. The winning declaration's flags are retained. A still-higher unforced declaration can therefore replace a lower forced declaration and remove the force. |
+| 8 | Multiple non-root modules force different versions, and the root does not force that coordinate | Layering fails before resolution. The error identifies both contributing modules and versions, and tells the user to declare the wanted version in the root module with `force_version = True`. |
 
-Rule 8 is a current limitation: conflicting non-root forces do not report an error.
+A single forced non-root declaration still participates in highest-version deduplication with other
+non-root declarations. A higher unforced declaration can replace it and remove the force.
 
 "Highest" uses the Maven `ComparableVersion` ordering implemented by
 `private/rules/maven_version.bzl`, not lexical string ordering. Non-root deduplication uses this
@@ -247,6 +248,7 @@ contributing module:
 | Condition | Behaviour |
 |---|---|
 | An unacknowledged non-root module contributes artifacts | Always prints the contribution warning. |
+| Non-root modules force different versions of a coordinate that the root does not force | Fails with the contributing module names and versions, and tells the user how to select a version in the root module. |
 | `known_contributing_modules` excludes an artifact or BOM contributor | Prints an `INFO` message when `RJE_VERBOSE` is set. |
 | A higher unforced non-root version survives alongside the root version, or a differently versioned forced non-root replaces it | Prints the root-version warning when `REPIN` or `RULES_JVM_EXTERNAL_REPIN` is set. |
 | A non-root-only coordinate is added | Prints an `INFO` message when a repin variable and `RJE_VERBOSE` are both set. |
