@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:partial.bzl", "partial")
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load(
-    "//private/extensions:maven.bzl",
+    "//private/lib:layering.bzl",
     "deduplicate_non_root_artifacts",
     "merge_with_root_priority",
 )
