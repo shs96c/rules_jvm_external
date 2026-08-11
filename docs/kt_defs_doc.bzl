@@ -1,10 +1,21 @@
-load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
-load(":java_export.bzl", "maven_export")
-load(":maven_project_jar.bzl", "DEFAULT_EXCLUDED_WORKSPACES")
+# This documentation-only mirror exists because rules_kotlin 2.2.2 does not
+# declare the private plugin bzl_library dependencies loaded by its public JVM
+# API. That metadata gap prevents Stardoc from reading //:kt_defs.bzl and the
+# real //private/rules:kt_jvm_export.bzl definition directly.
+#
+# Keep the signature and docstring below verbatim with the real definition. The
+# generated-doc drift test checks generated output only. It does not detect
+# mirror-versus-source drift, so code review remains the guard against that
+# residual risk.
+#
+# TODO: Replace this mirror with a direct //:kt_defs.bzl Stardoc input when
+# rules_kotlin exposes complete bzl_library metadata for its JVM API.
 
-KOTLIN_STDLIB = "rules_kotlin"
+DEFAULT_EXCLUDED_WORKSPACES = [
+    "com_google_protobuf",
+    "protobuf",
+]
 
-# Keep the signature and docstring synchronized with //docs:kt_defs_doc.bzl.
 def kt_jvm_export(
         name,
         maven_coordinates,
@@ -70,31 +81,4 @@ def kt_jvm_export(
         and so may contain any valid parameter for that rule.
     """
 
-    maven_coordinates_tags = ["maven_coordinates=%s" % maven_coordinates]
-    lib_name = "%s-lib" % name
-
-    javadocopts = kwargs.pop("javadocopts", None)
-
-    updated_excluded_workspaces = {name: None for name in excluded_workspaces}
-    updated_excluded_workspaces.update({KOTLIN_STDLIB: None})
-
-    # Construct the kt_jvm_library we'll export from here.
-    kt_jvm_library(
-        name = lib_name,
-        tags = tags + maven_coordinates_tags,
-        testonly = testonly,
-        **kwargs
-    )
-
-    maven_export(
-        name = name,
-        maven_coordinates = maven_coordinates,
-        lib_name = lib_name,
-        deploy_env = deploy_env,
-        excluded_workspaces = updated_excluded_workspaces,
-        pom_template = pom_template,
-        visibility = visibility,
-        tags = tags,
-        testonly = testonly,
-        javadocopts = javadocopts,
-    )
+    return None

@@ -14,9 +14,18 @@ stardoc(
     out = "defs.md",
     input = "//:defs.bzl",
     symbol_names = [
+        "DEFAULT_REPOSITORY_NAME",
+        "MavenPublishInfo",
+        "artifact",
+        "create_jar",
         "javadoc",
         "java_export",
+        "java_plugin_artifact",
+        "maven_artifact",
         "maven_bom",
+        "maven_export",
+        "pom_file",
+        "read_coordinates",
     ],
     visibility = ["//scripts:__pkg__"],
     deps = [
@@ -28,8 +37,16 @@ stardoc(
 )
 
 stardoc(
-    name = "bzlmod",
-    out = "bzlmod.md",
+    name = "kt_defs",
+    out = "kt_defs.md",
+    input = ":kt_defs_doc.bzl",
+    symbol_names = ["kt_jvm_export"],
+    visibility = ["//scripts:__pkg__"],
+)
+
+stardoc(
+    name = "extension",
+    out = "extension.md",
     input = "//:extensions.bzl",
     visibility = ["//scripts:__pkg__"],
     deps = [
@@ -43,11 +60,11 @@ sh_binary(
     args = [
         "$(location //scripts:generate_api_reference)",
         "api.md",
-        "$(location :bzlmod)",
-        "bzlmod-api.md",
+        "$(location :extension)",
+        "extension-api.md",
     ],
     data = [
-        ":bzlmod",
+        ":extension",
         "//scripts:generate_api_reference",
     ],
 )
@@ -60,14 +77,14 @@ sh_test(
         "api.md",
         "$(location :api.md)",
         "$(location //scripts:generate_api_reference)",
-        "bzlmod-api.md",
-        "$(location :bzlmod-api.md)",
-        "$(location :bzlmod)",
+        "extension-api.md",
+        "$(location :extension-api.md)",
+        "$(location :extension)",
     ],
     data = [
         ":api.md",
-        ":bzlmod",
-        ":bzlmod-api.md",
+        ":extension",
+        ":extension-api.md",
         "//scripts:generate_api_reference",
     ],
 )

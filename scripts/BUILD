@@ -28,11 +28,14 @@ genrule(
     srcs = [
         "//docs:includes/main_functions_header.md",
         "//docs:defs.md",
+        "//docs:kt_defs.md",
     ],
     outs = ["api.md"],
     cmd = """cat \
     $(location //docs:includes/main_functions_header.md) \
-    $(location //docs:defs.md) > $@""",
+    $(location //docs:defs.md) > $@
+sed 's|@rules_jvm_external//docs:kt_defs_doc.bzl|@rules_jvm_external//:kt_defs.bzl|' \
+    $(location //docs:kt_defs.md) >> $@""",
     visibility = [
         "//:__pkg__",
         "//docs:__pkg__",
