@@ -8,8 +8,13 @@
 # mirror-versus-source drift, so code review remains the guard against that
 # residual risk.
 #
-# TODO: Replace this mirror with a direct //:kt_defs.bzl Stardoc input when
-# rules_kotlin exposes complete bzl_library metadata for its JVM API.
+# TODO: Replace this mirror with a direct //:kt_defs.bzl Stardoc input once
+# rules_jvm_external depends on rules_kotlin >= 2.4.0, which makes the plugin
+# bzl_library public. Verified against 2.4.0: the direct target builds with
+# deps on //:implementation, @rules_java//java/private:proto_support,
+# @rules_kotlin//kotlin:kotlin, @rules_kotlin//kotlin/internal:internal, and
+# @rules_kotlin//src/main/starlark/core/plugin:plugin, and produces this same
+# document with a corrected load path.
 
 DEFAULT_EXCLUDED_WORKSPACES = [
     "com_google_protobuf",

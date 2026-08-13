@@ -91,7 +91,7 @@ download those exact files through Bazel's downloader and reuse its shared
 cache.
 
 Coursier is the default resolver. All resolvers support Maven BOMs. The Maven
-and Gradle resolvers require a lock file; the Gradle resolver is experimental.
+and Gradle resolvers require a lock file.
 Resolver selection, conflict policies, forced versions, and environment
 variables are covered in [Dependency resolution](docs/resolution.md).
 

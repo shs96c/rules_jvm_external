@@ -81,8 +81,7 @@ The resolver also reads credentials from `$HOME/.netrc`.
 
 ## Gradle
 
-The Gradle resolver is experimental. It requires a lock file, which may
-initially be empty.
+The Gradle resolver requires a lock file, which may initially be empty.
 
 | Environment variable | Meaning |
 |----------------------|---------|

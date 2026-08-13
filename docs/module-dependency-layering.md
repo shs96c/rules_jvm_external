@@ -37,7 +37,7 @@ also selects the highest version. The Maven resolver normalises duplicate direct
 `group:artifact` declarations to the first version, which is the root version.
 
 `version_conflict_policy = "pinned"` changes this interaction. For the Gradle and Maven resolvers,
-root artifacts are force-marked before layering, so the root wins even against a higher forced
+root artifacts have the `force_version` attribute set before layering, so the root wins even against a higher forced
 non-root declaration. For Coursier, the layering step is unchanged and every surviving direct
 version is later passed as a `--force-version` argument.
 

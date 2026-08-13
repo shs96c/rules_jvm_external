@@ -150,10 +150,9 @@ map with an `exclusions` field fails under Bzlmod with an error such as:
 error converting value for attribute artifacts: expected value of type 'string' ... got None (NoneType)
 ```
 
-Use a separate `maven.artifact` tag instead. This pattern was required by
-[grpc-java#10576](https://github.com/grpc/grpc-java/issues/10576). Remove the
-corresponding coordinate string from `maven.install`; if a coordinate must be
-repeated in more than one declaration, keep its version in sync. Use
+Use a separate `maven.artifact` tag instead. Remove the corresponding
+coordinate string from `maven.install`; if a coordinate must be repeated in
+more than one declaration, keep its version in sync. Use
 `maven.amend_artifact` when the coordinate is already declared by another tag in
 the same module.
 

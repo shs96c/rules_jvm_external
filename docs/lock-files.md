@@ -150,6 +150,19 @@ bazel run @maven//:outdated
 Update the declarations deliberately, then repin and review the resulting lock
 file diff.
 
+## List direct dependencies
+
+Run the generated `direct_deps` target to list every direct dependency with its
+resolved version:
+
+```shell
+bazel run @maven//:direct_deps
+```
+
+Each line is a `group:artifact:version` coordinate as selected during
+resolution. This includes versions that were not written on the declaration
+itself, such as a version supplied by a BOM.
+
 ## Caching and offline builds
 
 Pinned artifacts are downloaded through Bazel's downloader and cached by their

@@ -5,6 +5,29 @@ the URLs and SHA-256 checksums recorded in the lock file. This boundary lets
 Bazel's downloader cache, URL rewriter, proxy, and authentication support apply
 to normal builds.
 
+## Rewrite artifact URLs to a mirror
+
+Use Bazel's downloader configuration to redirect URLs recorded in the lock file
+without editing the file. For example, `downloader.cfg` can mirror Maven Central:
+
+```text
+rewrite repo1.maven.org/maven2/(.*) artifacts.example.com/maven-central/$1
+```
+
+Enable the configuration in `.bazelrc`:
+
+```text
+common --downloader_config=/path/to/downloader.cfg
+```
+
+Add blocking or allow-list rules only after confirming that the mirror contains
+every required artifact. Rewrites are applied by Bazel while downloading pinned
+files; the resolver still needs equivalent repository access when repinning.
+
+For a fully internal setup, use internal repository URLs in `maven.install` so
+resolution and the resulting lock file agree. Repin after changing repository
+URLs.
+
 ## Warm the repository cache
 
 Use a shared repository cache and fetch the complete generated repository while
@@ -32,29 +55,6 @@ also prepare Bazel modules, toolchains, and other external repositories. Follow
 Bazel's
 [offline build guidance](https://bazel.build/external/faq#how-do-i-prepare-and-run-an-offline-build)
 for the complete workspace.
-
-## Rewrite artifact URLs to a mirror
-
-Use Bazel's downloader configuration to redirect URLs recorded in the lock file
-without editing the file. For example, `downloader.cfg` can mirror Maven Central:
-
-```text
-rewrite repo1.maven.org/maven2/(.*) artifacts.example.com/maven-central/$1
-```
-
-Enable the configuration in `.bazelrc`:
-
-```text
-common --downloader_config=/path/to/downloader.cfg
-```
-
-Add blocking or allow-list rules only after confirming that the mirror contains
-every required artifact. Rewrites are applied by Bazel while downloading pinned
-files; the resolver still needs equivalent repository access when repinning.
-
-For a fully internal setup, use internal repository URLs in `maven.install` so
-resolution and the resulting lock file agree. Repin after changing repository
-URLs.
 
 ## Local Maven repository fallback
 
