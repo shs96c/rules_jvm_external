@@ -12,9 +12,14 @@ maven.install(
 )
 ```
 
-Coordinates normally use `groupId:artifactId:version` format. The generated
-target label omits the version. For example, `com.google.guava:guava:33.4.8-jre`
-is available as `@maven//:com_google_guava_guava`.
+Coordinates normally use `groupId:artifactId:version` format. The full syntax
+is Gradle's
+[external dependency notation](https://docs.gradle.org/current/javadoc/org/gradle/api/artifacts/dsl/DependencyHandler.html),
+`group:artifact[:version][:classifier][@packaging]`. The legacy
+`group:artifact[:packaging[:classifier]]:version` form is also accepted. The
+generated target label omits the version. For example,
+`com.google.guava:guava:33.4.8-jre` is available as
+`@maven//:com_google_guava_guava`.
 
 See the [module extension API](extension-api.md) for every tag and attribute.
 

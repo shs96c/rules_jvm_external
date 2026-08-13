@@ -47,7 +47,7 @@ install = tag_class(
         "name": attr.string(doc = "Name of the generated Maven repository.", default = DEFAULT_NAME),
 
         # Actual artifacts and overrides
-        "artifacts": attr.string_list(doc = "Maven artifact coordinates in `groupId:artifactId:version` format.", allow_empty = True),
+        "artifacts": attr.string_list(doc = "Maven artifact coordinates in Gradle external dependency notation, `group:artifact[:version][:classifier][@packaging]`. The legacy `group:artifact[:packaging[:classifier]]:version` form is also accepted.", allow_empty = True),
         "boms": attr.string_list(doc = "Maven BOM coordinates in `groupId:artifactId:version` format.", allow_empty = True),
         "exclusions": attr.string_list(doc = "Unused. Use `excluded_artifacts` for global exclusions or an `artifact` tag for per-artifact exclusions.", allow_empty = True),
 

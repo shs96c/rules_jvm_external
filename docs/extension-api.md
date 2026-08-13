@@ -92,7 +92,7 @@ Combines artifact and bom declarations with setting the location of lock files t
 | <a id="maven.install-aar_import_bzl_label"></a>aar_import_bzl_label |  Label, as a string, from which to load the `aar_import` rule.   | String | optional |  `"@rules_android//rules:rules.bzl"`  |
 | <a id="maven.install-additional_coursier_options"></a>additional_coursier_options |  Additional options passed to Coursier.   | List of strings | optional |  `[]`  |
 | <a id="maven.install-additional_netrc_lines"></a>additional_netrc_lines |  Additional lines prepended to the netrc file used by `http_file`. Requires `lock_file`.   | List of strings | optional |  `[]`  |
-| <a id="maven.install-artifacts"></a>artifacts |  Maven artifact coordinates in `groupId:artifactId:version` format.   | List of strings | optional |  `[]`  |
+| <a id="maven.install-artifacts"></a>artifacts |  Maven artifact coordinates in Gradle external dependency notation, `group:artifact[:version][:classifier][@packaging]`. The legacy `group:artifact[:packaging[:classifier]]:version` form is also accepted.   | List of strings | optional |  `[]`  |
 | <a id="maven.install-boms"></a>boms |  Maven BOM coordinates in `groupId:artifactId:version` format.   | List of strings | optional |  `[]`  |
 | <a id="maven.install-duplicate_version_warning"></a>duplicate_version_warning |  What to do if there are duplicate artifacts.<br><br>If `error`, print a message and fail the build. If `warn`, print a warning and continue. If `none`, do nothing.   | String | optional |  `"warn"`  |
 | <a id="maven.install-excluded_artifacts"></a>excluded_artifacts |  Maven artifact coordinates in `groupId:artifactId` format to exclude from transitive dependencies.   | List of strings | optional |  `[]`  |
