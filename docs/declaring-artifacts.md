@@ -138,8 +138,8 @@ maven.from_toml(
 )
 ```
 
-The Coursier resolver cannot resolve BOMs. Select the Maven or Gradle resolver
-and use a lock file when declaring them. See [Dependency resolution](resolution.md).
+All resolvers support BOMs. See [Dependency resolution](resolution.md) for
+resolver selection and lock-file requirements.
 
 ## Exclusions
 

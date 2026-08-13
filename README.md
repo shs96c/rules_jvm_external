@@ -90,10 +90,10 @@ records the selected versions, source URLs, and checksums. Subsequent builds
 download those exact files through Bazel's downloader and reuse its shared
 cache.
 
-Coursier is the default resolver. The Maven and Gradle resolvers support Maven
-BOMs and require a lock file. The Gradle resolver is experimental. Resolver
-selection, conflict policies, forced versions, and environment variables are
-covered in [Dependency resolution](docs/resolution.md).
+Coursier is the default resolver. All resolvers support Maven BOMs. The Maven
+and Gradle resolvers require a lock file; the Gradle resolver is experimental.
+Resolver selection, conflict policies, forced versions, and environment
+variables are covered in [Dependency resolution](docs/resolution.md).
 
 Tags from Bazel dependencies can contribute artifacts to the same generated
 repository. The root module controls which modules may contribute and which

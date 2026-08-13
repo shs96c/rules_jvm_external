@@ -1,7 +1,8 @@
 # Dependency resolution
 
 rules_jvm_external can resolve Maven dependencies with Coursier, Maven, or
-Gradle. Select a resolver on the root module's `maven.install` tag:
+Gradle. All three resolvers support Maven BOMs. Select a resolver on the root
+module's `maven.install` tag:
 
 ```starlark
 maven.install(
@@ -49,8 +50,7 @@ build --repo_env=JDK_JAVA_OPTIONS=-Djavax.net.ssl.trustStore=/path/to/cacerts
 
 [Coursier](https://get-coursier.io) is the default resolver. It is the only
 resolver that supports build-time resolution without a lock file, although a
-lock file is strongly recommended. Coursier cannot resolve dependencies that
-require Maven BOMs. Coursier is also used by tools such as sbt.
+lock file is strongly recommended. Coursier is also used by tools such as sbt.
 
 Set `COURSIER_CREDENTIALS` to inline credentials or an absolute path as
 described in the
@@ -67,8 +67,8 @@ Use `additional_coursier_options` to pass command-line options to Coursier. Use
 
 ## Maven
 
-The Maven resolver supports BOMs and requires a lock file. The file may be empty
-when bootstrapping the repository.
+The Maven resolver requires a lock file. The file may be empty when
+bootstrapping the repository.
 
 | Environment variable | Meaning |
 |----------------------|---------|
@@ -81,8 +81,8 @@ The resolver also reads credentials from `$HOME/.netrc`.
 
 ## Gradle
 
-The Gradle resolver is experimental. It supports BOMs and requires a lock file,
-which may initially be empty.
+The Gradle resolver is experimental. It requires a lock file, which may
+initially be empty.
 
 | Environment variable | Meaning |
 |----------------------|---------|
