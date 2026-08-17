@@ -159,9 +159,9 @@ resolved version:
 bazel run @maven//:direct_deps
 ```
 
-Each line is a `group:artifact:version` coordinate as selected during
-resolution. This includes versions that were not written on the declaration
-itself, such as a version supplied by a BOM.
+Each line is a coordinate in [Gradle notation](declaring-artifacts.md), with
+the version selected during resolution. This includes versions that were not
+written on the declaration itself, such as a version supplied by a BOM.
 
 ## Caching and offline builds
 
