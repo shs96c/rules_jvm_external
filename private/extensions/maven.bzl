@@ -81,7 +81,7 @@ install = tag_class(
         "additional_netrc_lines": attr.string_list(doc = "Additional lines prepended to the netrc file used by `http_file` (with `maven_install_json` only).", default = []),
         "use_credentials_from_home_netrc_file": attr.bool(doc = "Whether to pass machine login credentials from the ~/.netrc file to coursier.", default = False),
         "duplicate_version_warning": attr.string(
-            doc = """What to do if there are duplicate artifacts
+            doc = """What to do if layering selects a non-root version instead of the root version, or if duplicate artifacts reach the repository rule
 
             If "error", then print a message and fail the build.
             If "warn", then print a warning and continue.
@@ -580,6 +580,7 @@ def maven_impl(mctx):
             root_boms = root_repo.get("boms", []),
             resolver = root_repo.get("resolver", _DEFAULT_RESOLVER),
             version_conflict_policy = root_repo.get("version_conflict_policy", "default"),
+            duplicate_version_warning = root_repo.get("duplicate_version_warning", "warn"),
             known_contributing_modules = root_repo.get("known_contributing_modules", sets.make()),
             bazel_dep_to_non_root_artifacts = non_root_repo.get("bazel_dep_to_artifacts", {}),
             bazel_dep_to_non_root_boms = non_root_repo.get("bazel_dep_to_boms", {}),

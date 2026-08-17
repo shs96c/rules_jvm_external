@@ -18,9 +18,9 @@ def should_print_diagnostic(diagnostic, repin, verbose):
         (diagnostic.gate == "repin_verbose" and repin and verbose)
     )
 
-def contributing_modules_warning(repo_name, known_contributing_modules, non_root_bazel_dep_to_artifacts):
+def contributing_modules_warning(repo_name, known_contributing_modules, non_root_bazel_dep_to_items):
     """Returns the warning for contributions from modules not acknowledged by the root."""
-    contributing_module_names = non_root_bazel_dep_to_artifacts.keys()
+    contributing_module_names = non_root_bazel_dep_to_items.keys()
     new_contributing_modules = sets.difference(sets.make(contributing_module_names), known_contributing_modules)
     if sets.length(new_contributing_modules) > 0:
         return (
@@ -39,6 +39,17 @@ def contributing_modules_warning(repo_name, known_contributing_modules, non_root
         )
     return None
 
+def _candidate_takes_precedence(current_artifact, candidate_artifact):
+    if current_artifact == None:
+        return True
+
+    current_forced = getattr(current_artifact, "force_version", False)
+    candidate_forced = getattr(candidate_artifact, "force_version", False)
+    if current_forced != candidate_forced:
+        return candidate_forced
+
+    return compare_maven_versions(current_artifact.version, candidate_artifact.version) == -1
+
 def deduplicate_non_root_artifacts(
         bazel_dep_to_non_root_artifacts,
         return_only_artifacts = False,
@@ -47,35 +58,36 @@ def deduplicate_non_root_artifacts(
     coordinate_to_artifact = {}
     coordinate_to_forced_artifact = {}
     for bazel_dep_name in bazel_dep_to_non_root_artifacts:
+        module_coordinate_to_artifact = {}
         for artifact in bazel_dep_to_non_root_artifacts.get(bazel_dep_name, []):
             if not getattr(artifact, "testonly", False):
                 artifact_key = to_key(artifact)
+                if _candidate_takes_precedence(module_coordinate_to_artifact.get(artifact_key), artifact):
+                    module_coordinate_to_artifact[artifact_key] = artifact
 
-                if getattr(artifact, "force_version", False) and artifact_key not in root_forced_artifact_keys:
-                    previous_force = coordinate_to_forced_artifact.get(artifact_key)
-                    if previous_force:
-                        previous_bazel_dep_name, previous_artifact = previous_force
-                        if previous_bazel_dep_name != bazel_dep_name and compare_maven_versions(previous_artifact.version, artifact.version) != 0:
-                            fail(
-                                "Conflicting forced versions for dependency '%s': %s wants %s, %s wants %s. " % (
-                                    artifact_key,
-                                    previous_bazel_dep_name,
-                                    previous_artifact.version,
-                                    bazel_dep_name,
-                                    artifact.version,
-                                ) +
-                                "Add an `artifact` tag to the root module at the version you want and set `force_version = True`.",
-                            )
-                    else:
-                        coordinate_to_forced_artifact[artifact_key] = (bazel_dep_name, artifact)
-
-                # prioritize highest version
-                if artifact_key in coordinate_to_artifact:
-                    _bazel_dep_name, current_artifact = coordinate_to_artifact[artifact_key]
-                    if compare_maven_versions(current_artifact.version, artifact.version) == -1:
-                        coordinate_to_artifact[artifact_key] = (bazel_dep_name, artifact)
+        for artifact_key, artifact in module_coordinate_to_artifact.items():
+            if getattr(artifact, "force_version", False) and artifact_key not in root_forced_artifact_keys:
+                previous_force = coordinate_to_forced_artifact.get(artifact_key)
+                if previous_force:
+                    previous_bazel_dep_name, previous_artifact = previous_force
+                    if compare_maven_versions(previous_artifact.version, artifact.version) != 0:
+                        fail(
+                            "Conflicting forced versions for dependency '%s': %s wants %s, %s wants %s. " % (
+                                artifact_key,
+                                previous_bazel_dep_name,
+                                previous_artifact.version,
+                                bazel_dep_name,
+                                artifact.version,
+                            ) +
+                            "Add an `artifact` tag to the root module at the version you want and set `force_version = True`.",
+                        )
                 else:
-                    coordinate_to_artifact[artifact_key] = (bazel_dep_name, artifact)
+                    coordinate_to_forced_artifact[artifact_key] = (bazel_dep_name, artifact)
+
+            current = coordinate_to_artifact.get(artifact_key)
+            current_artifact = current[1] if current else None
+            if _candidate_takes_precedence(current_artifact, artifact):
+                coordinate_to_artifact[artifact_key] = (bazel_dep_name, artifact)
 
     if return_only_artifacts:
         return [v[1] for v in coordinate_to_artifact.values()]
@@ -87,7 +99,11 @@ def deduplicate_non_root_artifacts(
 #
 # This can be typical for the default @maven namespace, if a bzlmod dependency
 # wishes to contribute to the users' jars.
-def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts):
+def merge_with_root_priority(
+        name,
+        root_artifacts,
+        bazel_dep_to_non_root_artifacts,
+        duplicate_version_warning = "warn"):
     """Deduplicate artifacts, giving priority to root module artifacts with force_version set."""
     root_forced_artifact_keys = {
         to_key(artifact): True
@@ -110,18 +126,20 @@ def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifac
             if not getattr(root_artifact, "force_version", False):
                 comparison = compare_maven_versions(root_artifact.version, non_root_artifact.version)
                 non_root_forced = getattr(non_root_artifact, "force_version", False)
-                if non_root_forced:
+                if non_root_forced or comparison == -1:
                     keep_root_artifact = False
-                    filtered_non_root_artifacts.append(non_root_artifact)
-                elif comparison == -1:
                     filtered_non_root_artifacts.append(non_root_artifact)
 
                 if comparison != 0 and (non_root_forced or comparison == -1):
-                    duplicate_artifact_warning = duplicate_artifact_warning + (
-                        "\nWARNING: For dependency '%s:%s' the root @%s repo wants version %s, " % (root_artifact.group, root_artifact.artifact, name, root_artifact.version) +
+                    message = (
+                        "For dependency '%s:%s' the root @%s repo wants version %s, " % (root_artifact.group, root_artifact.artifact, name, root_artifact.version) +
                         "but got %s from the %s bazel dep. " % (non_root_artifact.version, bazel_dep_name) +
                         "Please update the version in your MODULE.bazel or set `force_version = True`."
                     )
+                    if duplicate_version_warning == "error":
+                        fail(message)
+                    elif duplicate_version_warning == "warn":
+                        duplicate_artifact_warning = duplicate_artifact_warning + "\nWARNING: " + message
         if keep_root_artifact:
             filtered_root_artifacts.append(root_artifact)
 
@@ -135,7 +153,7 @@ def merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifac
 
     diagnostics = []
     if duplicate_artifact_warning != "":
-        diagnostics.append(_diagnostic(duplicate_artifact_warning, "repin"))
+        diagnostics.append(_diagnostic(duplicate_artifact_warning, "always"))
     if addtional_artifact_message != "":
         diagnostics.append(_diagnostic(addtional_artifact_message, "repin_verbose"))
 
@@ -168,6 +186,7 @@ def layer_maven_namespace(
         root_boms,
         resolver,
         version_conflict_policy,
+        duplicate_version_warning,
         known_contributing_modules,
         bazel_dep_to_non_root_artifacts,
         bazel_dep_to_non_root_boms):
@@ -190,7 +209,7 @@ def layer_maven_namespace(
         warning = contributing_modules_warning(
             name,
             known_contributing_modules,
-            bazel_dep_to_non_root_artifacts,
+            bazel_dep_to_non_root_artifacts | bazel_dep_to_non_root_boms,
         )
         if warning:
             diagnostics.append(_diagnostic(warning, "always"))
@@ -213,10 +232,20 @@ def layer_maven_namespace(
         bazel_dep_to_non_root_boms = filtered_boms.filtered
         diagnostics.extend(filtered_boms.diagnostics)
 
-    artifacts = merge_with_root_priority(name, root_artifacts, bazel_dep_to_non_root_artifacts)
+    artifacts = merge_with_root_priority(
+        name,
+        root_artifacts,
+        bazel_dep_to_non_root_artifacts,
+        duplicate_version_warning,
+    )
     diagnostics.extend(artifacts.diagnostics)
 
-    boms = merge_with_root_priority(name, root_boms, bazel_dep_to_non_root_boms)
+    boms = merge_with_root_priority(
+        name,
+        root_boms,
+        bazel_dep_to_non_root_boms,
+        duplicate_version_warning,
+    )
     diagnostics.extend(boms.diagnostics)
 
     return struct(

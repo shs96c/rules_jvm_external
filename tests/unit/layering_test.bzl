@@ -34,11 +34,15 @@ def _artifact(
         exclusions = exclusions or [],
     )
 
-def _merge_result(root_artifacts, bazel_dep_to_non_root_artifacts):
+def _merge_result(
+        root_artifacts,
+        bazel_dep_to_non_root_artifacts,
+        duplicate_version_warning = "warn"):
     return merge_with_root_priority(
         "maven",
         root_artifacts,
         bazel_dep_to_non_root_artifacts,
+        duplicate_version_warning,
     )
 
 def _merge(root_artifacts, bazel_dep_to_non_root_artifacts):
@@ -51,6 +55,7 @@ def _layer(
         root_boms = None,
         resolver = "coursier",
         version_conflict_policy = "default",
+        duplicate_version_warning = "warn",
         known_contributing_modules = None,
         non_root_artifacts = None,
         non_root_boms = None):
@@ -61,6 +66,7 @@ def _layer(
         root_boms = root_boms or [],
         resolver = resolver,
         version_conflict_policy = version_conflict_policy,
+        duplicate_version_warning = duplicate_version_warning,
         known_contributing_modules = known_contributing_modules or sets.make(),
         bazel_dep_to_non_root_artifacts = non_root_artifacts or {},
         bazel_dep_to_non_root_boms = non_root_boms or {},
@@ -80,32 +86,76 @@ def _nonroot_lower_version_is_dropped_impl(ctx):
     env = unittest.begin(ctx)
     root = _artifact("2.0")
 
-    asserts.equals(env, [root], _merge([root], {"dep": [_artifact("1.0")]}))
+    result = _merge_result([root], {"dep": [_artifact("1.0")]})
+
+    asserts.equals(env, [root], result.artifacts)
+    asserts.equals(env, [], result.diagnostics)
 
     return unittest.end(env)
 
 nonroot_lower_version_is_dropped_test = unittest.make(_nonroot_lower_version_is_dropped_impl)
 
-def _nonroot_higher_version_keeps_both_impl(ctx):
+def _equal_unforced_nonroot_keeps_root_metadata_without_warning_impl(ctx):
+    env = unittest.begin(ctx)
+    root = _artifact(
+        "1.0",
+        neverlink = True,
+        exclusions = [struct(group = "excluded", artifact = "root")],
+    )
+
+    result = _merge_result(
+        [root],
+        {"dep": [_artifact(
+            "1.0",
+            exclusions = [struct(group = "excluded", artifact = "non-root")],
+        )]},
+    )
+
+    asserts.equals(env, [root], result.artifacts)
+    asserts.equals(env, [], result.diagnostics)
+
+    return unittest.end(env)
+
+equal_unforced_nonroot_keeps_root_metadata_without_warning_test = unittest.make(_equal_unforced_nonroot_keeps_root_metadata_without_warning_impl)
+
+def _nonroot_higher_version_wins_and_warns_impl(ctx):
     env = unittest.begin(ctx)
     root = _artifact("1.0")
     non_root = _artifact("2.0")
 
     result = _merge_result([root], {"dep": [non_root]})
 
-    asserts.equals(env, [root, non_root], result.artifacts)
+    asserts.equals(env, [non_root], result.artifacts)
     asserts.equals(
         env,
         [struct(
             text = "\nWARNING: For dependency 'com.example:library' the root @maven repo wants version 1.0, but got 2.0 from the dep bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.",
-            gate = "repin",
+            gate = "always",
         )],
         result.diagnostics,
     )
 
     return unittest.end(env)
 
-nonroot_higher_version_keeps_both_test = unittest.make(_nonroot_higher_version_keeps_both_impl)
+nonroot_higher_version_wins_and_warns_test = unittest.make(_nonroot_higher_version_wins_and_warns_impl)
+
+def _nonroot_override_warning_can_be_disabled_impl(ctx):
+    env = unittest.begin(ctx)
+    non_root = _artifact("2.0")
+
+    result = _layer(
+        root_artifacts = [_artifact("1.0")],
+        duplicate_version_warning = "none",
+        known_contributing_modules = sets.make(["dep"]),
+        non_root_artifacts = {"dep": [non_root]},
+    )
+
+    asserts.equals(env, [non_root], result.artifacts)
+    asserts.equals(env, [], result.diagnostics)
+
+    return unittest.end(env)
+
+nonroot_override_warning_can_be_disabled_test = unittest.make(_nonroot_override_warning_can_be_disabled_impl)
 
 def _higher_nonroot_force_beats_unforced_root_impl(ctx):
     env = unittest.begin(ctx)
@@ -116,7 +166,7 @@ def _higher_nonroot_force_beats_unforced_root_impl(ctx):
 
     asserts.equals(env, [non_root], result.artifacts)
     asserts.true(env, result.artifacts[0].force_version)
-    asserts.equals(env, "repin", result.diagnostics[0].gate)
+    asserts.equals(env, "always", result.diagnostics[0].gate)
 
     return unittest.end(env)
 
@@ -130,7 +180,7 @@ def _lower_nonroot_force_beats_unforced_root_impl(ctx):
     result = _merge_result([root], {"dep": [non_root]})
 
     asserts.equals(env, [non_root], result.artifacts)
-    asserts.equals(env, "repin", result.diagnostics[0].gate)
+    asserts.equals(env, "always", result.diagnostics[0].gate)
 
     return unittest.end(env)
 
@@ -274,6 +324,17 @@ def _conflicting_nonroot_forces_target_impl(_ctx):
 
 conflicting_nonroot_forces_target = rule(implementation = _conflicting_nonroot_forces_target_impl)
 
+def _nonroot_override_error_target_impl(_ctx):
+    _layer(
+        root_artifacts = [_artifact("1.0")],
+        duplicate_version_warning = "error",
+        known_contributing_modules = sets.make(["dep"]),
+        non_root_artifacts = {"dep": [_artifact("2.0")]},
+    )
+    return []
+
+nonroot_override_error_target = rule(implementation = _nonroot_override_error_target_impl)
+
 def _unforced_root_with_conflicting_nonroot_forces_target_impl(_ctx):
     merge_with_root_priority(
         "maven",
@@ -306,6 +367,21 @@ unforced_root_with_conflicting_nonroot_forces_fail_test = analysistest.make(
     expect_failure = True,
 )
 
+def _nonroot_override_error_fails_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    asserts.expect_failure(
+        env,
+        "For dependency 'com.example:library' the root @maven repo wants version 1.0, but got 2.0 from the dep bazel dep.",
+    )
+
+    return analysistest.end(env)
+
+nonroot_override_error_fails_test = analysistest.make(
+    _nonroot_override_error_fails_impl,
+    expect_failure = True,
+)
+
 def _matching_nonroot_forces_keep_first_module_impl(ctx):
     env = unittest.begin(ctx)
     first = _artifact("1.0", force_version = True, neverlink = True)
@@ -326,18 +402,17 @@ def _matching_nonroot_forces_keep_first_module_impl(ctx):
 
 matching_nonroot_forces_keep_first_module_test = unittest.make(_matching_nonroot_forces_keep_first_module_impl)
 
-def _higher_unforced_nonroot_erases_force_impl(ctx):
+def _forced_nonroot_beats_higher_unforced_nonroot_impl(ctx):
     env = unittest.begin(ctx)
-    higher = _artifact("2.0")
+    forced = _artifact("1.0", force_version = True)
 
-    # The highest declaration currently wins without preserving another module's force.
     asserts.equals(
         env,
-        [higher],
+        [forced],
         deduplicate_non_root_artifacts(
             {
-                "first": [_artifact("1.0", force_version = True)],
-                "second": [higher],
+                "first": [_artifact("2.0")],
+                "second": [forced],
             },
             return_only_artifacts = True,
         ),
@@ -345,7 +420,41 @@ def _higher_unforced_nonroot_erases_force_impl(ctx):
 
     return unittest.end(env)
 
-higher_unforced_nonroot_erases_force_test = unittest.make(_higher_unforced_nonroot_erases_force_impl)
+forced_nonroot_beats_higher_unforced_nonroot_test = unittest.make(_forced_nonroot_beats_higher_unforced_nonroot_impl)
+
+def _forced_nonroot_beats_higher_duplicate_from_same_module_impl(ctx):
+    env = unittest.begin(ctx)
+    forced = _artifact("1.0", force_version = True)
+
+    asserts.equals(
+        env,
+        [forced],
+        deduplicate_non_root_artifacts(
+            {"dep": [_artifact("2.0"), forced]},
+            return_only_artifacts = True,
+        ),
+    )
+
+    return unittest.end(env)
+
+forced_nonroot_beats_higher_duplicate_from_same_module_test = unittest.make(_forced_nonroot_beats_higher_duplicate_from_same_module_impl)
+
+def _highest_forced_duplicate_from_same_module_wins_impl(ctx):
+    env = unittest.begin(ctx)
+    higher = _artifact("2.0", force_version = True)
+
+    asserts.equals(
+        env,
+        [higher],
+        deduplicate_non_root_artifacts(
+            {"dep": [_artifact("1.0", force_version = True), higher]},
+            return_only_artifacts = True,
+        ),
+    )
+
+    return unittest.end(env)
+
+highest_forced_duplicate_from_same_module_wins_test = unittest.make(_highest_forced_duplicate_from_same_module_wins_impl)
 
 def _namespace_without_root_uses_nonroot_dedup_impl(ctx):
     env = unittest.begin(ctx)
@@ -408,7 +517,7 @@ def _known_contributors_filter_deps_and_boms_impl(ctx):
 
 known_contributors_filter_deps_and_boms_test = unittest.make(_known_contributors_filter_deps_and_boms_impl)
 
-def _bom_only_contributor_does_not_warn_about_modules_impl(ctx):
+def _bom_only_contributor_warns_about_modules_impl(ctx):
     env = unittest.begin(ctx)
     bom = _artifact("1.0", packaging = "pom", artifact = "bom")
 
@@ -418,6 +527,9 @@ def _bom_only_contributor_does_not_warn_about_modules_impl(ctx):
     asserts.equals(
         env,
         [struct(
+            text = "The maven repository 'maven' has contributions from multiple bzlmod modules, and will be resolved together: [\"dep\"].\nSee https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md#module-dependency-layering for more information. \n To suppress this warning review the contributions from the other modules and add the following attribute in the root MODULE.bazel file: \nmaven.install(\n  known_contributing_modules = [\"dep\"],\n  ...\n)",
+            gate = "always",
+        ), struct(
             text = "\nINFO: The @maven repo is getting the additional artifact com.example:bom:1.0 from the dep bazel dep.",
             gate = "repin_verbose",
         )],
@@ -426,7 +538,7 @@ def _bom_only_contributor_does_not_warn_about_modules_impl(ctx):
 
     return unittest.end(env)
 
-bom_only_contributor_does_not_warn_about_modules_test = unittest.make(_bom_only_contributor_does_not_warn_about_modules_impl)
+bom_only_contributor_warns_about_modules_test = unittest.make(_bom_only_contributor_warns_about_modules_impl)
 
 def _boms_merge_with_root_priority_impl(ctx):
     env = unittest.begin(ctx)
@@ -532,9 +644,9 @@ def _diagnostics_preserve_text_gates_and_order_impl(ctx):
         [
             struct(text = "\nINFO: The @custom repo is not using deps from excluded-dep because it is not in the known_contributing_modules", gate = "verbose"),
             struct(text = "\nINFO: The @custom repo is not using boms from excluded-bom because it is not in the known_contributing_modules", gate = "verbose"),
-            struct(text = "\nWARNING: For dependency 'com.example:library' the root @custom repo wants version 1.0, but got 2.0 from the kept bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.", gate = "repin"),
+            struct(text = "\nWARNING: For dependency 'com.example:library' the root @custom repo wants version 1.0, but got 2.0 from the kept bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.", gate = "always"),
             struct(text = "\nINFO: The @custom repo is getting the additional artifact com.example:additional:1.0 from the kept bazel dep.", gate = "repin_verbose"),
-            struct(text = "\nWARNING: For dependency 'com.example:bom' the root @custom repo wants version 1.0, but got 2.0 from the kept bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.", gate = "repin"),
+            struct(text = "\nWARNING: For dependency 'com.example:bom' the root @custom repo wants version 1.0, but got 2.0 from the kept bazel dep. Please update the version in your MODULE.bazel or set `force_version = True`.", gate = "always"),
             struct(text = "\nINFO: The @custom repo is getting the additional artifact com.example:additional-bom:1.0 from the kept bazel dep.", gate = "repin_verbose"),
         ],
         result.diagnostics,
@@ -603,6 +715,11 @@ def layering_test_suite():
         # This target must only be analysed through the expected-failure test.
         tags = ["manual"],
     )
+    nonroot_override_error_target(
+        name = "nonroot_override_error_target",
+        # This target must only be analysed through the expected-failure test.
+        tags = ["manual"],
+    )
     unforced_root_with_conflicting_nonroot_forces_target(
         name = "unforced_root_with_conflicting_nonroot_forces_target",
         # This target must only be analysed through the expected-failure test.
@@ -612,7 +729,9 @@ def layering_test_suite():
         "layering_tests",
         partial.make(root_only_resolves_root_version_test, size = "small"),
         partial.make(nonroot_lower_version_is_dropped_test, size = "small"),
-        partial.make(nonroot_higher_version_keeps_both_test, size = "small"),
+        partial.make(equal_unforced_nonroot_keeps_root_metadata_without_warning_test, size = "small"),
+        partial.make(nonroot_higher_version_wins_and_warns_test, size = "small"),
+        partial.make(nonroot_override_warning_can_be_disabled_test, size = "small"),
         partial.make(higher_nonroot_force_beats_unforced_root_test, size = "small"),
         partial.make(lower_nonroot_force_beats_unforced_root_test, size = "small"),
         partial.make(equal_nonroot_force_retains_transitive_pin_test, size = "small"),
@@ -631,11 +750,17 @@ def layering_test_suite():
             unforced_root_with_conflicting_nonroot_forces_fail_test,
             target_under_test = ":unforced_root_with_conflicting_nonroot_forces_target",
         ),
+        partial.make(
+            nonroot_override_error_fails_test,
+            target_under_test = ":nonroot_override_error_target",
+        ),
         partial.make(matching_nonroot_forces_keep_first_module_test, size = "small"),
-        partial.make(higher_unforced_nonroot_erases_force_test, size = "small"),
+        partial.make(forced_nonroot_beats_higher_unforced_nonroot_test, size = "small"),
+        partial.make(forced_nonroot_beats_higher_duplicate_from_same_module_test, size = "small"),
+        partial.make(highest_forced_duplicate_from_same_module_wins_test, size = "small"),
         partial.make(namespace_without_root_uses_nonroot_dedup_test, size = "small"),
         partial.make(known_contributors_filter_deps_and_boms_test, size = "small"),
-        partial.make(bom_only_contributor_does_not_warn_about_modules_test, size = "small"),
+        partial.make(bom_only_contributor_warns_about_modules_test, size = "small"),
         partial.make(boms_merge_with_root_priority_test, size = "small"),
         partial.make(classifier_and_packaging_layer_independently_test, size = "small"),
         partial.make(pinned_gradle_root_beats_higher_nonroot_force_test, size = "small"),
