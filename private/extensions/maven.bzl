@@ -580,7 +580,7 @@ def maven_impl(mctx):
             root_boms = root_repo.get("boms", []),
             resolver = root_repo.get("resolver", _DEFAULT_RESOLVER),
             version_conflict_policy = root_repo.get("version_conflict_policy", "default"),
-            duplicate_version_warning = root_repo.get("duplicate_version_warning", "warn"),
+            duplicate_version_warning = root_repo.get("duplicate_version_warning") or "warn",
             known_contributing_modules = root_repo.get("known_contributing_modules", sets.make()),
             bazel_dep_to_non_root_artifacts = non_root_repo.get("bazel_dep_to_artifacts", {}),
             bazel_dep_to_non_root_boms = non_root_repo.get("bazel_dep_to_boms", {}),
