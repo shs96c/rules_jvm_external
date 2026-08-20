@@ -186,13 +186,14 @@ included in the key. For example, a classified JAR layers independently of its u
 For conflicts between modules, layering selects one complete declaration for each coordinate. The
 selected declaration supplies its exclusions, `neverlink`, `testonly`, `force_version`, packaging,
 classifier, and other fields. Fields from discarded declarations are not merged into it. Duplicate
-declarations made by the root module remain for the repository-level check.
+declarations made by the root module normally remain for the repository-level check. If any module
+sets `force_version` on the same coordinate at two different versions, layering fails first.
 
 The layering rules are:
 
 | # | Declarations for one coordinate | Layering behaviour |
 |---|---|---|
-| 1 | Root only | The root declaration is retained. |
+| 1 | Root only | The root declaration is retained, unless the root forces the coordinate at two different versions, in which case layering fails. |
 | 2 | Root and non-root, with no `force_version` | The declaration with the highest version is retained, regardless of origin. An equal-version tie retains the root declaration. |
 | 3 | Unforced root and forced non-root | The non-root declaration is retained and the root declaration is discarded, regardless of version. An equal non-root declaration therefore retains its pin against a transitive upgrade. |
 | 4 | Forced root and forced non-root | The root declaration is retained and the non-root declaration is discarded. |
@@ -201,10 +202,11 @@ The layering rules are:
 | 7 | Multiple non-root modules, with at least one forced declaration | Unforced declarations are discarded. A single forced declaration wins regardless of version. Matching forced versions retain the first module's complete declaration. Different forced versions from different modules fail before resolution unless the root forces the coordinate. |
 | 8 | Multiple non-root modules, with no force | The highest version is retained. Equal versions retain the first module's complete declaration. |
 
-Within one non-root module, a forced declaration beats its unforced duplicates. Among declarations
-with the same force state, the highest version wins and an equal-version tie retains the first
-complete declaration. Different forced versions in one module do not trigger the cross-module
-conflict failure; the highest forced version wins.
+Within one non-root module, a forced declaration beats its unforced duplicates. Forced declarations
+for the same coordinate at different versions fail before selection. Matching forced versions retain
+the first complete declaration. Among unforced declarations, the highest version wins and an
+equal-version tie retains the first complete declaration. This check uses the same coordinate key as
+layering, so non-default packaging and classifiers remain independent.
 
 A forced root resolves the selection before conflicting non-root forces are considered, so rules 4
 and 6 retain it without failing. An unforced root does not provide that exemption. Different forced
@@ -214,7 +216,8 @@ versions from different non-root modules still fail before comparison with an un
 `private/rules/maven_version.bzl`, not lexical string ordering.
 
 `version_conflict_policy = "pinned"` changes this interaction. For the Gradle and Maven resolvers,
-root artifacts are force-marked before layering. Maven marks every versioned root declaration.
+root artifacts are force-marked before layering. The duplicate-force check applies to declared
+forces before this policy is applied. Maven then marks every versioned root declaration.
 Gradle first selects one version for each root `group:artifact`: an unclassified declaration takes
 precedence over classified declarations, and Maven `ComparableVersion` order selects among
 declarations with the same classification status. Every root declaration for that module at the
@@ -258,6 +261,7 @@ contributing module:
 | Condition | Behaviour |
 |---|---|
 | An unacknowledged non-root module contributes artifacts or BOMs | Always prints the contribution warning. |
+| One module declares `force_version` for the same coordinate at different versions | Fails with the module, coordinate, and both versions. |
 | Non-root modules force different versions of a coordinate that the root does not force | Fails with the contributing module names and versions, and tells the user how to select a version in the root module. |
 | `known_contributing_modules` excludes an artifact or BOM contributor | Prints an `INFO` message when `RJE_VERBOSE` is set. |
 | Layering selects a version different from the root version | `duplicate_version_warning` controls whether to warn, fail, or do nothing. Its default is `warn`, which prints during extension evaluation without requiring a repin variable. |

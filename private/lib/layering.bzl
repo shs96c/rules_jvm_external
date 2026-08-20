@@ -50,6 +50,25 @@ def _candidate_takes_precedence(current_artifact, candidate_artifact):
 
     return compare_maven_versions(current_artifact.version, candidate_artifact.version) == -1
 
+def _fail_if_conflicting_forces(module_name, artifacts):
+    coordinate_to_forced_artifact = {}
+    for artifact in artifacts:
+        if not getattr(artifact, "force_version", False):
+            continue
+
+        artifact_key = to_key(artifact)
+        previous_artifact = coordinate_to_forced_artifact.get(artifact_key)
+        if previous_artifact != None and compare_maven_versions(previous_artifact.version, artifact.version) != 0:
+            fail(
+                "Module '%s' forces dependency '%s' at different versions: %s and %s." % (
+                    module_name,
+                    artifact_key,
+                    previous_artifact.version,
+                    artifact.version,
+                ),
+            )
+        coordinate_to_forced_artifact[artifact_key] = artifact
+
 def deduplicate_non_root_artifacts(
         bazel_dep_to_non_root_artifacts,
         return_only_artifacts = False,
@@ -59,7 +78,9 @@ def deduplicate_non_root_artifacts(
     coordinate_to_forced_artifact = {}
     for bazel_dep_name in bazel_dep_to_non_root_artifacts:
         module_coordinate_to_artifact = {}
-        for artifact in bazel_dep_to_non_root_artifacts.get(bazel_dep_name, []):
+        module_artifacts = bazel_dep_to_non_root_artifacts.get(bazel_dep_name, [])
+        _fail_if_conflicting_forces(bazel_dep_name, module_artifacts)
+        for artifact in module_artifacts:
             if not getattr(artifact, "testonly", False):
                 artifact_key = to_key(artifact)
                 if _candidate_takes_precedence(module_coordinate_to_artifact.get(artifact_key), artifact):
@@ -191,6 +212,8 @@ def layer_maven_namespace(
         bazel_dep_to_non_root_artifacts,
         bazel_dep_to_non_root_boms):
     """Layers the dependency declarations for one Maven repository namespace."""
+    _fail_if_conflicting_forces("root", root_artifacts)
+    _fail_if_conflicting_forces("root", root_boms)
     root_artifacts = apply_root_version_conflict_policy(
         root_artifacts,
         resolver,

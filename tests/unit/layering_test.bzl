@@ -324,6 +324,25 @@ def _conflicting_nonroot_forces_target_impl(_ctx):
 
 conflicting_nonroot_forces_target = rule(implementation = _conflicting_nonroot_forces_target_impl)
 
+def _same_module_forces_target_impl(ctx):
+    artifacts = [
+        _artifact("1.0", force_version = True),
+        _artifact(ctx.attr.second_version, force_version = True),
+    ]
+    if ctx.attr.root:
+        _layer(root_artifacts = artifacts)
+    else:
+        deduplicate_non_root_artifacts({"dep": artifacts}, return_only_artifacts = True)
+    return []
+
+same_module_forces_target = rule(
+    implementation = _same_module_forces_target_impl,
+    attrs = {
+        "root": attr.bool(),
+        "second_version": attr.string(mandatory = True),
+    },
+)
+
 def _nonroot_override_error_target_impl(_ctx):
     _layer(
         root_artifacts = [_artifact("1.0")],
@@ -382,6 +401,25 @@ nonroot_override_error_fails_test = analysistest.make(
     expect_failure = True,
 )
 
+def _same_module_forces_fail_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    asserts.expect_failure(env, ctx.attr.expected_message)
+
+    return analysistest.end(env)
+
+different_forced_versions_from_same_nonroot_module_fail_test = analysistest.make(
+    _same_module_forces_fail_impl,
+    attrs = {"expected_message": attr.string(mandatory = True)},
+    expect_failure = True,
+)
+
+different_forced_versions_from_root_module_fail_test = analysistest.make(
+    _same_module_forces_fail_impl,
+    attrs = {"expected_message": attr.string(mandatory = True)},
+    expect_failure = True,
+)
+
 def _matching_nonroot_forces_keep_first_module_impl(ctx):
     env = unittest.begin(ctx)
     first = _artifact("1.0", force_version = True, neverlink = True)
@@ -401,6 +439,34 @@ def _matching_nonroot_forces_keep_first_module_impl(ctx):
     return unittest.end(env)
 
 matching_nonroot_forces_keep_first_module_test = unittest.make(_matching_nonroot_forces_keep_first_module_impl)
+
+def _matching_forced_duplicates_from_same_nonroot_module_keep_first_impl(ctx):
+    env = unittest.begin(ctx)
+    first = _artifact("1.0", force_version = True, neverlink = True)
+
+    asserts.equals(
+        env,
+        [first],
+        deduplicate_non_root_artifacts(
+            {"dep": [first, _artifact("1.0", force_version = True)]},
+            return_only_artifacts = True,
+        ),
+    )
+
+    return unittest.end(env)
+
+matching_forced_duplicates_from_same_nonroot_module_keep_first_test = unittest.make(_matching_forced_duplicates_from_same_nonroot_module_keep_first_impl)
+
+def _matching_forced_duplicates_from_root_module_remain_for_repository_check_impl(ctx):
+    env = unittest.begin(ctx)
+    first = _artifact("1.0", force_version = True, neverlink = True)
+    second = _artifact("1.0", force_version = True)
+
+    asserts.equals(env, [first, second], _layer(root_artifacts = [first, second]).artifacts)
+
+    return unittest.end(env)
+
+matching_forced_duplicates_from_root_module_remain_for_repository_check_test = unittest.make(_matching_forced_duplicates_from_root_module_remain_for_repository_check_impl)
 
 def _forced_nonroot_beats_higher_unforced_nonroot_impl(ctx):
     env = unittest.begin(ctx)
@@ -439,22 +505,39 @@ def _forced_nonroot_beats_higher_duplicate_from_same_module_impl(ctx):
 
 forced_nonroot_beats_higher_duplicate_from_same_module_test = unittest.make(_forced_nonroot_beats_higher_duplicate_from_same_module_impl)
 
-def _highest_forced_duplicate_from_same_module_wins_impl(ctx):
+def _forced_classifiers_from_same_module_layer_independently_impl(ctx):
     env = unittest.begin(ctx)
-    higher = _artifact("2.0", force_version = True)
+    plain = _artifact("1.0", force_version = True)
+    classified = _artifact("2.0", force_version = True, classifier = "tests")
 
     asserts.equals(
         env,
-        [higher],
+        [plain, classified],
         deduplicate_non_root_artifacts(
-            {"dep": [_artifact("1.0", force_version = True), higher]},
+            {"dep": [plain, classified]},
             return_only_artifacts = True,
         ),
     )
 
     return unittest.end(env)
 
-highest_forced_duplicate_from_same_module_wins_test = unittest.make(_highest_forced_duplicate_from_same_module_wins_impl)
+forced_classifiers_from_same_module_layer_independently_test = unittest.make(_forced_classifiers_from_same_module_layer_independently_impl)
+
+def _pinned_maven_synthesized_root_forces_do_not_conflict_impl(ctx):
+    env = unittest.begin(ctx)
+
+    result = _layer(
+        root_artifacts = [_artifact("1.0"), _artifact("2.0")],
+        resolver = "maven",
+        version_conflict_policy = "pinned",
+    )
+
+    asserts.equals(env, ["1.0", "2.0"], [artifact.version for artifact in result.artifacts])
+    asserts.equals(env, [True, True], [artifact.force_version for artifact in result.artifacts])
+
+    return unittest.end(env)
+
+pinned_maven_synthesized_root_forces_do_not_conflict_test = unittest.make(_pinned_maven_synthesized_root_forces_do_not_conflict_impl)
 
 def _namespace_without_root_uses_nonroot_dedup_impl(ctx):
     env = unittest.begin(ctx)
@@ -725,6 +808,17 @@ def layering_test_suite():
         # This target must only be analysed through the expected-failure test.
         tags = ["manual"],
     )
+    same_module_forces_target(
+        name = "different_forced_versions_from_same_nonroot_module_target",
+        second_version = "2.0",
+        tags = ["manual"],
+    )
+    same_module_forces_target(
+        name = "different_forced_versions_from_root_module_target",
+        root = True,
+        second_version = "2.0",
+        tags = ["manual"],
+    )
     unittest.suite(
         "layering_tests",
         partial.make(root_only_resolves_root_version_test, size = "small"),
@@ -754,10 +848,23 @@ def layering_test_suite():
             nonroot_override_error_fails_test,
             target_under_test = ":nonroot_override_error_target",
         ),
+        partial.make(
+            different_forced_versions_from_same_nonroot_module_fail_test,
+            expected_message = "Module 'dep' forces dependency 'com.example:library' at different versions: 1.0 and 2.0.",
+            target_under_test = ":different_forced_versions_from_same_nonroot_module_target",
+        ),
+        partial.make(
+            different_forced_versions_from_root_module_fail_test,
+            expected_message = "Module 'root' forces dependency 'com.example:library' at different versions: 1.0 and 2.0.",
+            target_under_test = ":different_forced_versions_from_root_module_target",
+        ),
         partial.make(matching_nonroot_forces_keep_first_module_test, size = "small"),
+        partial.make(matching_forced_duplicates_from_same_nonroot_module_keep_first_test, size = "small"),
+        partial.make(matching_forced_duplicates_from_root_module_remain_for_repository_check_test, size = "small"),
         partial.make(forced_nonroot_beats_higher_unforced_nonroot_test, size = "small"),
         partial.make(forced_nonroot_beats_higher_duplicate_from_same_module_test, size = "small"),
-        partial.make(highest_forced_duplicate_from_same_module_wins_test, size = "small"),
+        partial.make(forced_classifiers_from_same_module_layer_independently_test, size = "small"),
+        partial.make(pinned_maven_synthesized_root_forces_do_not_conflict_test, size = "small"),
         partial.make(namespace_without_root_uses_nonroot_dedup_test, size = "small"),
         partial.make(known_contributors_filter_deps_and_boms_test, size = "small"),
         partial.make(bom_only_contributor_warns_about_modules_test, size = "small"),
