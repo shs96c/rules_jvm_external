@@ -39,9 +39,16 @@ stardoc(
 stardoc(
     name = "kt_defs",
     out = "kt_defs.md",
-    input = ":kt_defs_doc.bzl",
+    input = "//:kt_defs.bzl",
     symbol_names = ["kt_jvm_export"],
     visibility = ["//scripts:__pkg__"],
+    deps = [
+        "//:implementation",
+        "@rules_java//java/private:proto_support",
+        "@rules_kotlin//kotlin",
+        "@rules_kotlin//kotlin/internal",
+        "@rules_kotlin//src/main/starlark/core/plugin",
+    ],
 )
 
 stardoc(

@@ -4,7 +4,6 @@ load(":maven_project_jar.bzl", "DEFAULT_EXCLUDED_WORKSPACES")
 
 KOTLIN_STDLIB = "rules_kotlin"
 
-# Keep the signature and docstring synchronized with //docs:kt_defs_doc.bzl.
 def kt_jvm_export(
         name,
         maven_coordinates,
