@@ -189,28 +189,23 @@ classifier, and other fields. Fields from discarded declarations are not merged 
 declarations made by the root module normally remain for the repository-level check. If any module
 sets `force_version` on the same coordinate at two different versions, layering fails first.
 
-The layering rules are:
+The surviving declaration is chosen by these rules, in order:
 
-| # | Declarations for one coordinate | Layering behaviour |
-|---|---|---|
-| 1 | Root only | The root declaration is retained, unless the root forces the coordinate at two different versions, in which case layering fails. |
-| 2 | Root and non-root, with no `force_version` | The declaration with the highest version is retained, regardless of origin. An equal-version tie retains the root declaration. |
-| 3 | Unforced root and forced non-root | The non-root declaration is retained and the root declaration is discarded, regardless of version. An equal non-root declaration therefore retains its pin against a transitive upgrade. |
-| 4 | Forced root and forced non-root | The root declaration is retained and the non-root declaration is discarded. |
-| 5 | One non-root module only | Its declaration is retained. A non-root artifact marked `testonly` is filtered out. |
-| 6 | Forced root and unforced non-root | The root declaration is retained, regardless of version. |
-| 7 | Multiple non-root modules, with at least one forced declaration | Unforced declarations are discarded. A single forced declaration wins regardless of version. Matching forced versions retain the first module's complete declaration. Different forced versions from different modules fail before resolution unless the root forces the coordinate. |
-| 8 | Multiple non-root modules, with no force | The highest version is retained. Equal versions retain the first module's complete declaration. |
+1. A forced version in the root module always wins.
+2. Otherwise, a forced declaration beats any unforced one, whatever the versions.
+3. Otherwise, the highest version wins, regardless of which module declared it.
+
+On ties and conflicts:
+
+- Two non-root modules that force different versions is an error and fails before resolution. The root can settle it by forcing the version itself.
+- On a tie (equal versions, or the same forced version from more than one module) the first module's declaration is kept; the root counts as first.
+- A non-root artifact marked `testonly` is dropped.
 
 Within one non-root module, a forced declaration beats its unforced duplicates. Forced declarations
 for the same coordinate at different versions fail before selection. Matching forced versions retain
 the first complete declaration. Among unforced declarations, the highest version wins and an
 equal-version tie retains the first complete declaration. This check uses the same coordinate key as
 layering, so non-default packaging and classifiers remain independent.
-
-A forced root resolves the selection before conflicting non-root forces are considered, so rules 4
-and 6 retain it without failing. An unforced root does not provide that exemption. Different forced
-versions from different non-root modules still fail before comparison with an unforced root.
 
 "Highest" uses the Maven `ComparableVersion` ordering implemented by
 `private/rules/maven_version.bzl`, not lexical string ordering.
@@ -222,9 +217,9 @@ Gradle first selects one version for each root `group:artifact`: an unclassified
 precedence over classified declarations, and Maven `ComparableVersion` order selects among
 declarations with the same classification status. Every root declaration for that module at the
 selected version is then marked forced, including classified declarations. The root consequently
-wins through rules 4 or 6. For Coursier, layering is unchanged and the one surviving direct version
-is later passed as a `--force-version` argument. A higher non-root version can therefore displace
-the root under Coursier and then be pinned.
+wins because it now forces the coordinate. For Coursier, layering is unchanged and the one
+surviving direct version is later passed as a `--force-version` argument. A higher non-root
+version can therefore displace the root under Coursier and then be pinned.
 
 The `force_version` flag can be set by an `artifact` tag, an `amend_artifact` tag, or a regular
 artifact read by `from_toml`. Coordinates in `install.artifacts` cannot carry the flag. BOMs use the
