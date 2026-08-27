@@ -277,7 +277,7 @@ def layer_maven_namespace(
         diagnostics = diagnostics,
     )
 
-def remove_fields(s):
+def remove_empty_fields(s):
     """Used for reducing an artifact struct down to only those fields that have values"""
     return {
         k: getattr(s, k)
@@ -325,11 +325,11 @@ def apply_root_version_conflict_policy(artifacts, resolver, version_conflict_pol
     if resolver == "gradle":
         forced_versions = _select_gradle_forced_versions(artifacts)
         return [
-            struct(**(remove_fields(artifact) | {"force_version": True})) if _forces_gradle_module_version(artifact, forced_versions) else artifact
+            struct(**(remove_empty_fields(artifact) | {"force_version": True})) if _forces_gradle_module_version(artifact, forced_versions) else artifact
             for artifact in artifacts
         ]
 
     return [
-        struct(**(remove_fields(artifact) | {"force_version": True})) if getattr(artifact, "version", None) else artifact
+        struct(**(remove_empty_fields(artifact) | {"force_version": True})) if getattr(artifact, "version", None) else artifact
         for artifact in artifacts
     ]

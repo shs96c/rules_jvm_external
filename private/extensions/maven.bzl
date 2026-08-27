@@ -14,7 +14,7 @@ load(
     "//private/lib:layering.bzl",
     "DEFAULT_NAME",
     "layer_maven_namespace",
-    "remove_fields",
+    "remove_empty_fields",
     "should_print_diagnostic",
 )
 load("//private/rules:coursier.bzl", "DEFAULT_AAR_IMPORT_LABEL", "coursier_fetch", "pinned_coursier_fetch")
@@ -81,7 +81,7 @@ install = tag_class(
         "additional_netrc_lines": attr.string_list(doc = "Additional lines prepended to the netrc file used by `http_file` (with `maven_install_json` only).", default = []),
         "use_credentials_from_home_netrc_file": attr.bool(doc = "Whether to pass machine login credentials from the ~/.netrc file to coursier.", default = False),
         "duplicate_version_warning": attr.string(
-            doc = """What to do if layering selects a non-root version instead of the root version, or if duplicate artifacts reach the repository rule
+            doc = """What to do if layering selects a non-root version instead of the root version, or if the root module declares multiple versions of the same coordinate
 
             If "error", then print a message and fail the build.
             If "warn", then print a warning and continue.
@@ -573,7 +573,7 @@ def maven_impl(mctx):
         merged_repo.update(non_root_repo)
         merged_repo.update(root_repo)
 
-        layered = layer_maven_namespace(
+        layered_artifacts_and_boms = layer_maven_namespace(
             name = repo_name,
             root_present = repo_name in root_module_repos,
             root_artifacts = root_repo.get("artifacts", []),
@@ -585,9 +585,9 @@ def maven_impl(mctx):
             bazel_dep_to_non_root_artifacts = non_root_repo.get("bazel_dep_to_artifacts", {}),
             bazel_dep_to_non_root_boms = non_root_repo.get("bazel_dep_to_boms", {}),
         )
-        merged_repo["artifacts"] = layered.artifacts
-        merged_repo["boms"] = layered.boms
-        _print_layering_diagnostics(layered.diagnostics, repin_env_var, rje_verbose_env_var)
+        merged_repo["artifacts"] = layered_artifacts_and_boms.artifacts
+        merged_repo["boms"] = layered_artifacts_and_boms.boms
+        _print_layering_diagnostics(layered_artifacts_and_boms.diagnostics, repin_env_var, rje_verbose_env_var)
 
         # For list attributes, concatenate but avoid duplicates (root items first)
         for list_attr in ["repositories", "excluded_artifacts", "additional_netrc_lines"]:
