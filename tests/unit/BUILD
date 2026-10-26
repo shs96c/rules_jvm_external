@@ -9,6 +9,7 @@ load(":java_utilities_test.bzl", "java_utilities_test_suite")
 load(":layering_test.bzl", "layering_test_suite")
 load(":lock_file_inputs_test.bzl", "lock_file_inputs_test_suite")
 load(":lock_file_records_test.bzl", "lock_file_records_test_suite")
+load(":lock_file_requests_test.bzl", "lock_file_requests_test_suite")
 load(":maven_version_test.bzl", "maven_version_test_suite")
 load(":proxy_test.bzl", "proxy_test_suite")
 load(":specs_test.bzl", "artifact_specs_test_suite")
@@ -39,6 +40,8 @@ layering_test_suite()
 lock_file_inputs_test_suite()
 
 lock_file_records_test_suite()
+
+lock_file_requests_test_suite()
 
 maven_version_test_suite()
 
