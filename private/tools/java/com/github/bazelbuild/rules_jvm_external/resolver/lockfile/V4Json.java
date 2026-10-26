@@ -39,6 +39,10 @@ final class V4Json {
     return PRETTY.toJson(sorted(value)).replace("\n", "\n  ");
   }
 
+  static String prettyInOrder(Object value) {
+    return PRETTY.toJson(value).replace("\n", "\n  ");
+  }
+
   static Object sorted(Object value) {
     if (value instanceof Map) {
       Map<String, Object> result = new TreeMap<>();
