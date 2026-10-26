@@ -88,8 +88,29 @@ public class V4LockFileTest {
     v3.put("repositories", repositories);
     String text = V4LockFile.render(v3, Map.of());
     assertEquals(before.get("artifacts"), parse(text).get("artifacts"));
-    assertEquals(repositories, parse(text).get("repositories"));
+    assertEquals(
+        Map.of("https://z/", List.of("g:a", "g:b"), "https://a/", List.of("g:a")),
+        parse(text).get("repositories"));
     assertTrue(text.indexOf("https://z/") < text.indexOf("https://a/"));
+  }
+
+  @Test
+  public void shouldCanonicaliseRepositoryMembersWithoutMarkingRemoteRowsLocal() {
+    Map<String, Object> v3 = v3("1");
+    v3.put("m2local", true);
+    List<String> members = List.of("g:b:jar", "g:a:jar", "g:a");
+    Map<String, Object> repositories = new LinkedHashMap<>();
+    repositories.put("https://z/", members);
+    repositories.put("https://a/", List.of());
+    v3.put("repositories", repositories);
+    String text = V4LockFile.render(v3, Map.of());
+    Map<String, Object> result = parse(text);
+    assertEquals(
+        Map.of("https://z/", List.of("g:a", "g:b"), "https://a/", List.of()),
+        result.get("repositories"));
+    assertEquals(List.of(), result.get("m2local_artifacts"));
+    assertTrue(text.indexOf("https://z/") < text.indexOf("https://a/"));
+    assertEquals(members, repositories.get("https://z/"));
   }
 
   @Test

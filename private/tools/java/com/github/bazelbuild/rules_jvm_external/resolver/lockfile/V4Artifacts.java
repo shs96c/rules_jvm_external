@@ -18,6 +18,7 @@ import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +29,7 @@ import java.util.TreeSet;
 final class V4Artifacts {
   final Map<String, V4Artifact> byIdentity = new TreeMap<>();
   final Map<String, List<String>> dependencies = new TreeMap<>();
+  final Map<String, List<String>> repositories = new LinkedHashMap<>();
   final Set<String> local = new TreeSet<>();
   final Set<String> skipped = new TreeSet<>();
 
@@ -60,11 +62,17 @@ final class V4Artifacts {
           children.forEach(child -> merged.add(requireIdentity(child)));
           dependencies.put(key, new ArrayList<>(merged));
         });
+    Map<String, Collection<String>> rawRepositories = V4Json.map(v3.get("repositories"));
+    rawRepositories.forEach(
+        (url, members) -> {
+          Set<String> canonical = new TreeSet<>();
+          members.forEach(key -> canonical.add(identity(key)));
+          repositories.put(url, new ArrayList<>(canonical));
+        });
     if (Boolean.TRUE.equals(v3.get("m2local"))) {
       local.addAll(byIdentity.keySet());
       local.removeAll(skipped);
-      Map<String, Collection<String>> repositories = V4Json.map(v3.get("repositories"));
-      repositories.values().forEach(members -> members.forEach(key -> local.remove(identity(key))));
+      repositories.values().forEach(local::removeAll);
     }
   }
 
