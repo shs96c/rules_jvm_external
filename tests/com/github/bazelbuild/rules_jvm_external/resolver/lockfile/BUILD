@@ -58,3 +58,17 @@ java_test(
         artifact("org.hamcrest:hamcrest_core"),
     ],
 )
+
+java_test(
+    name = "V4ArtifactsTest",
+    size = "small",
+    srcs = ["V4ArtifactsTest.java"],
+    test_class = "com.github.bazelbuild.rules_jvm_external.resolver.lockfile.V4ArtifactsTest",
+    deps = [
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/lockfile",
+        "//private/tools/java/com/github/bazelbuild/rules_jvm_external",
+        artifact("junit:junit", repository_name = "regression_testing_coursier"),
+        artifact("org.hamcrest:hamcrest"),
+        artifact("org.hamcrest:hamcrest_core"),
+    ],
+)
