@@ -17,6 +17,7 @@ package com.github.bazelbuild.rules_jvm_external.resolver.lockfile;
 import com.github.bazelbuild.rules_jvm_external.Coordinates;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +51,7 @@ final class V4Artifacts {
       skipped.add(identity(key));
     }
     recoverSkipped();
+    attachVariants();
     Map<String, Collection<String>> rawDependencies = V4Json.map(v3.get("dependencies"));
     rawDependencies.forEach(
         (parent, children) -> {
@@ -68,8 +70,39 @@ final class V4Artifacts {
 
   private void add(V4Artifact artifact) {
     String identity = artifact.coordinates.asKey();
+    if (artifact.sha256 != null && !artifact.sha256.matches("[0-9a-f]{64}")) {
+      throw new IllegalArgumentException("Invalid SHA-256 for " + identity);
+    }
     if (byIdentity.putIfAbsent(identity, artifact) != null) {
       throw new IllegalArgumentException("Duplicate artifact identity " + identity);
+    }
+  }
+
+  private void attachVariants() {
+    Map<String, List<V4Artifact>> groups = new TreeMap<>();
+    for (V4Artifact artifact : byIdentity.values()) {
+      Coordinates coords = artifact.coordinates;
+      groups
+          .computeIfAbsent(
+              coords.getGroupId() + ":" + coords.getArtifactId(), unused -> new ArrayList<>())
+          .add(artifact);
+    }
+    for (List<V4Artifact> group : groups.values()) {
+      group.sort(Comparator.comparing(V4Artifact::externalForm));
+      Set<String> variants = new TreeSet<>();
+      V4Artifact anchor = null;
+      for (V4Artifact artifact : group) {
+        Coordinates coords = artifact.coordinates;
+        if ("sources".equals(coords.getClassifier()) || "javadoc".equals(coords.getClassifier())) {
+          variants.add(coords.asKey());
+        } else if (anchor == null
+            || (coords.getClassifier().isEmpty() && "jar".equals(coords.getExtension()))) {
+          anchor = artifact;
+        }
+      }
+      if (anchor != null && !variants.isEmpty()) {
+        anchor.metadata.put("variants", new ArrayList<>(variants));
+      }
     }
   }
 

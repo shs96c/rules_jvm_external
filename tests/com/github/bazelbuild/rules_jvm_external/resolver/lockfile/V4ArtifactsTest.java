@@ -27,7 +27,7 @@ public class V4ArtifactsTest {
   @Test
   public void shouldRetainAllClassifiersIncludingNullChecksums() {
     Map<String, Object> sums = new HashMap<>();
-    sums.put("jar", "sha");
+    sums.put("jar", "a".repeat(64));
     sums.put("sources", null);
     V4Artifacts result =
         new V4Artifacts(
@@ -93,6 +93,68 @@ public class V4ArtifactsTest {
     assertEquals(Map.of("g:a", List.of("g:b")), result.dependencies);
   }
 
+  @Test
+  public void shouldInventoryNullSourceAndJavadocRowsOnTheMainJar() {
+    Map<String, String> sums = new HashMap<>();
+    sums.put("jar", "a".repeat(64));
+    sums.put("sources", null);
+    sums.put("javadoc", "b".repeat(64));
+    V4Artifacts result =
+        new V4Artifacts(
+            Map.of(
+                "artifacts",
+                Map.of("g:a", Map.of("version", "1", "shasums", sums), "g:a:aar", artifact("1"))));
+    assertEquals(
+        List.of("g:a:jar:javadoc", "g:a:jar:sources"),
+        result.byIdentity.get("g:a").metadata.get("variants"));
+    assertTrue(result.byIdentity.get("g:a:aar").metadata.isEmpty());
+    assertTrue(result.byIdentity.get("g:a:jar:sources").metadata.isEmpty());
+  }
+
+  @Test
+  public void shouldUseFirstExternalCoordinateAsNonJarVariantAnchor() {
+    Map<String, String> sums = new HashMap<>();
+    sums.put("jar", "a".repeat(64));
+    sums.put("sources", null);
+    V4Artifacts result =
+        new V4Artifacts(
+            Map.of(
+                "artifacts",
+                Map.of(
+                    "g:a:zip", artifact("1"), "g:a:aar", Map.of("version", "1", "shasums", sums))));
+    assertEquals(
+        List.of("g:a:aar:sources"), result.byIdentity.get("g:a:aar").metadata.get("variants"));
+    assertTrue(result.byIdentity.get("g:a:zip").metadata.isEmpty());
+  }
+
+  @Test
+  public void shouldRetainUnanchoredVariantRowsWithoutSelfReferences() {
+    V4Artifacts result =
+        new V4Artifacts(
+            Map.of(
+                "artifacts",
+                Map.of(
+                    "g:a", Map.of("version", "1", "shasums", Map.of("sources", "a".repeat(64))))));
+    assertEquals(Set.of("g:a:jar:sources"), result.byIdentity.keySet());
+    assertTrue(result.byIdentity.get("g:a:jar:sources").metadata.isEmpty());
+  }
+
+  @Test
+  public void shouldRejectInvalidNonNullSha256() {
+    for (String sha : List.of("sha", "A".repeat(64), "g".repeat(64), "a".repeat(63))) {
+      assertTrue(
+          invalid(
+                  () ->
+                      new V4Artifacts(
+                          Map.of(
+                              "artifacts",
+                              Map.of(
+                                  "g:a", Map.of("version", "1", "shasums", Map.of("jar", sha))))))
+              .getMessage()
+              .contains("SHA-256"));
+    }
+  }
+
   private static IllegalArgumentException invalid(Runnable action) {
     try {
       action.run();
@@ -103,6 +165,6 @@ public class V4ArtifactsTest {
   }
 
   private static Map<String, Object> artifact(String version) {
-    return Map.of("version", version, "shasums", Map.of("jar", "sha"));
+    return Map.of("version", version, "shasums", Map.of("jar", "a".repeat(64)));
   }
 }
