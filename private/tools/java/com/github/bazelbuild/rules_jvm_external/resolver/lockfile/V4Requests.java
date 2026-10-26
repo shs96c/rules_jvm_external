@@ -51,12 +51,16 @@ final class V4Requests {
   }
 
   private static V4Artifact select(Collection<V4Artifact> artifacts, Map<String, Object> request) {
+    String classifier = (String) request.getOrDefault("classifier", "");
+    if ("jar".equals(classifier)) {
+      classifier = "";
+    }
     List<V4Artifact> candidates = new ArrayList<>();
     for (V4Artifact artifact : artifacts) {
       Coordinates coords = artifact.coordinates;
       if (coords.getGroupId().equals(request.get("group"))
           && coords.getArtifactId().equals(request.get("artifact"))
-          && coords.getClassifier().equals(request.getOrDefault("classifier", ""))
+          && coords.getClassifier().equals(classifier)
           && (!request.containsKey("packaging")
               || coords.getExtension().equals(request.get("packaging")))) {
         candidates.add(artifact);

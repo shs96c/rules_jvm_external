@@ -47,6 +47,15 @@ public class V4RequestsTest {
   }
 
   @Test
+  public void shouldTreatTheJarClassifierSentinelAsTheMainArtifact() {
+    V4Artifact main = artifact("jar", "", "2");
+    Map<String, Object> request =
+        Map.of("group", "g", "artifact", "a", "version", "2", "classifier", "jar");
+    assertEquals(List.of(), V4Requests.attach(List.of(main), List.of(request)));
+    assertEquals(List.of(Map.of("classifier", "jar")), main.metadata.get("requests"));
+  }
+
+  @Test
   public void shouldPreserveRequestedSelectorsAndExplicitPackaging() {
     V4Artifact selected = artifact("jar", "", "2");
     V4Requests.attach(
