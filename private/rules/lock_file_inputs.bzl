@@ -75,7 +75,7 @@ def inputs_from_attrs(attrs):
         artifacts = attrs.artifacts,
         boms = attrs.boms,
         excluded_artifacts = attrs.excluded_artifacts,
-        resolver = attrs.resolver,
+        resolver = getattr(attrs, "resolver", "coursier"),
         fetch_sources = attrs.fetch_sources,
         fetch_javadoc = attrs.fetch_javadoc,
         ignore_empty_files = attrs.ignore_empty_files,

@@ -78,7 +78,6 @@ def _render(contents, inputs, include_files = False):
 v4_lock_file = struct(
     is_valid_lock_file = _is_valid,
     get_inputs = read_inputs,
-    get_input_artifacts_hash = read_inputs,
     get_lock_file_hash = stored_hashes,
     compute_lock_file_hash = compute_hashes,
     print_friendly_hash_difference = _difference,

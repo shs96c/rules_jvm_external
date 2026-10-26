@@ -294,6 +294,9 @@ function test_bom_only_pinning() {
 
   expect_log "Successfully pinned resolved artifacts"
   expect_file_is_not_empty "tests/custom_maven_install/bom_only_pinning_install.json"
+  grep -q '"version": "4"' "tests/custom_maven_install/bom_only_pinning_install.json"
+  expect_not_in_file '__INPUT_ARTIFACTS_HASH' "tests/custom_maven_install/bom_only_pinning_install.json"
+  expect_not_in_file '__RESOLVED_ARTIFACTS_HASH' "tests/custom_maven_install/bom_only_pinning_install.json"
 }
 
 function test_maven_resolver_missing_source_jar() {
@@ -303,6 +306,9 @@ function test_maven_resolver_missing_source_jar() {
   # the missing sources jar (this `bazel run` crashed before the fix).
   REPIN=1 bazel run @maven_missing_source_jar//:pin >> "$TEST_LOG" 2>&1
   expect_file_is_not_empty "tests/custom_maven_install/maven_missing_source_jar_install.json"
+  grep -q '"version": "4"' "tests/custom_maven_install/maven_missing_source_jar_install.json"
+  expect_not_in_file '__INPUT_ARTIFACTS_HASH' "tests/custom_maven_install/maven_missing_source_jar_install.json"
+  expect_not_in_file '__RESOLVED_ARTIFACTS_HASH' "tests/custom_maven_install/maven_missing_source_jar_install.json"
 
   bazel query '@maven_missing_source_jar//:*' >> "$TEST_LOG" 2>&1
   # Sources were fetched for artifacts that publish them...
@@ -316,6 +322,9 @@ function test_gradle_resolver_missing_source_jar() {
   # As test_maven_resolver_missing_source_jar, but via the Gradle resolver.
   REPIN=1 bazel run @gradle_missing_source_jar//:pin >> "$TEST_LOG" 2>&1
   expect_file_is_not_empty "tests/custom_maven_install/gradle_missing_source_jar_install.json"
+  grep -q '"version": "4"' "tests/custom_maven_install/gradle_missing_source_jar_install.json"
+  expect_not_in_file '__INPUT_ARTIFACTS_HASH' "tests/custom_maven_install/gradle_missing_source_jar_install.json"
+  expect_not_in_file '__RESOLVED_ARTIFACTS_HASH' "tests/custom_maven_install/gradle_missing_source_jar_install.json"
 
   bazel query '@gradle_missing_source_jar//:*' >> "$TEST_LOG" 2>&1
   # Sources were fetched for artifacts that publish them...
