@@ -14,7 +14,7 @@
 
 """Compact resolved records and their repository-independent integrity checks."""
 
-load("//private/lib:coordinates.bzl", "to_external_form", "to_key", "unpack_coordinates")
+load("//private/lib:coordinates.bzl", "to_external_form", "to_key")
 
 def coordinates_from_identity(identity, version):
     parts = identity.split(":")
@@ -26,6 +26,23 @@ def coordinates_from_identity(identity, version):
         "classifier": parts[3] if len(parts) > 3 else "jar",
     }
 
+def parse_external_form(coordinate):
+    """Parse the known external syntax without Maven's four-field ambiguity."""
+    sections = coordinate.split("@")
+    pieces = sections[0].split(":")
+    if len(sections) > 2 or len(pieces) not in [3, 4] or not all(pieces):
+        fail("Invalid Gradle external coordinate: %s" % coordinate)
+    parsed = struct(
+        group = pieces[0],
+        artifact = pieces[1],
+        version = pieces[2],
+        classifier = pieces[3] if len(pieces) == 4 else None,
+        packaging = sections[1] if len(sections) == 2 else None,
+    )
+    if to_external_form(parsed) != coordinate:
+        fail("Artifact coordinate must use the full Gradle external form: %s" % coordinate)
+    return parsed
+
 def metadata(row):
     return row[3] if len(row) == 4 else {}
 
@@ -34,9 +51,7 @@ def records_by_identity(contents):
     for row in contents["artifacts"]:
         if type(row) != "list" or len(row) not in [3, 4] or type(row[0]) != "string":
             fail("Invalid artifact record; expected [coordinate, SHA-256, hash, optional metadata]")
-        parsed = unpack_coordinates(row[0])
-        if not parsed.version or to_external_form(parsed) != row[0]:
-            fail("Artifact coordinate must use the full Gradle external form: %s" % row[0])
+        parsed = parse_external_form(row[0])
         if row[1] != None and (type(row[1]) != "string" or len(row[1]) != 64 or not all([c in "0123456789abcdef" for c in row[1].elems()])):
             fail("Invalid SHA-256 for %s" % row[0])
         if type(metadata(row)) != "dict":
@@ -85,15 +100,15 @@ def records_from_v3(contents):
             parsed["classifier"] = classifier
             coordinate = to_external_form(parsed)
             records[coordinate] = [coordinate, sha, 0]
-    identities = {to_key(row[0]): True for row in records.values()}
+    identities = {to_key(parse_external_form(row[0])): True for row in records.values()}
     for identity in contents.get("skipped", []):
         if identity in identities:
             continue
         parsed = coordinates_from_identity(identity, "")
         versions = {
-            unpack_coordinates(row[0]).version: True
+            parse_external_form(row[0]).version: True
             for row in records.values()
-            if row[0].startswith("%s:%s:" % (parsed["group"], parsed["artifact"])) and (unpack_coordinates(row[0]).packaging or "jar") == parsed["packaging"]
+            if row[0].startswith("%s:%s:" % (parsed["group"], parsed["artifact"])) and (parse_external_form(row[0]).packaging or "jar") == parsed["packaging"]
         }
         if len(versions) != 1:
             fail("Cannot recover version for skipped artifact %s" % identity)

@@ -46,10 +46,19 @@ def _converts_classifiers_and_non_jar_packaging_impl(ctx):
 
 converts_classifiers_and_non_jar_packaging_test = unittest.make(_converts_classifiers_and_non_jar_packaging_impl)
 
+def _named_versions_keep_their_classifier_impl(ctx):
+    env = unittest.begin(ctx)
+    lock = {"artifacts": [["g:a:RELEASE:sources", None, 0]]}
+    asserts.equals(env, ["g:a:jar:sources"], compute_hashes(lock).keys())
+    return unittest.end(env)
+
+named_versions_keep_their_classifier_test = unittest.make(_named_versions_keep_their_classifier_impl)
+
 def lock_file_records_test_suite():
     unittest.suite(
         "lock_file_records_tests",
         canonical_hash_matches_java_test,
+        named_versions_keep_their_classifier_test,
         child_versions_and_repositories_do_not_change_parent_hash_test,
         converts_classifiers_and_non_jar_packaging_test,
     )
