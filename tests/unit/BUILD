@@ -14,6 +14,7 @@ load(":maven_version_test.bzl", "maven_version_test_suite")
 load(":proxy_test.bzl", "proxy_test_suite")
 load(":specs_test.bzl", "artifact_specs_test_suite")
 load(":v3_lock_file_test.bzl", "v3_lock_file_test_suite")
+load(":v4_lock_file_test.bzl", "v4_lock_file_test_suite")
 load(":version_catalogs_test.bzl", "version_catalogs_test_suite")
 load(":version_conflict_policy_test.bzl", "version_conflict_policy_test_suite")
 
@@ -48,6 +49,8 @@ maven_version_test_suite()
 proxy_test_suite()
 
 v3_lock_file_test_suite()
+
+v4_lock_file_test_suite()
 
 version_catalogs_test_suite()
 
