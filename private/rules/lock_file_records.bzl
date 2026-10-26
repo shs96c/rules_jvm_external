@@ -18,6 +18,8 @@ load("//private/lib:coordinates.bzl", "to_external_form", "to_key")
 
 def coordinates_from_identity(identity, version):
     parts = identity.split(":")
+    if len(parts) not in [2, 3, 4] or not all(parts[:2]):
+        fail("Invalid artifact identity: %s" % identity)
     return {
         "group": parts[0],
         "artifact": parts[1],
@@ -42,6 +44,22 @@ def parse_external_form(coordinate):
     if to_external_form(parsed) != coordinate:
         fail("Artifact coordinate must use the full Gradle external form: %s" % coordinate)
     return parsed
+
+def canonical_identity(identity):
+    return to_key(coordinates_from_identity(identity, ""))
+
+def normalise_v3(contents):
+    """Normalise legacy aliases before graph checks, hashes and download hints."""
+    converted = dict(contents)
+    dependencies = {}
+    for parent, children in contents.get("dependencies", {}).items():
+        key = canonical_identity(parent)
+        dependencies.setdefault(key, {}).update({canonical_identity(child): True for child in children})
+    converted["dependencies"] = {parent: sorted(children) for parent, children in dependencies.items()}
+    converted["repositories"] = {repo: sorted({canonical_identity(member): True for member in members}) for repo, members in contents.get("repositories", {}).items()}
+    if "skipped" in contents:
+        converted["skipped"] = sorted({canonical_identity(identity): True for identity in contents["skipped"]})
+    return converted
 
 def metadata(row):
     return row[3] if len(row) == 4 else {}
@@ -94,14 +112,21 @@ def stored_hashes(contents):
 def records_from_v3(contents):
     """Expand legacy grouped checksums into independently versioned records."""
     records = {}
+    identities = {}
     for identity, info in contents["artifacts"].items():
+        if len(identity.split(":")) > 3:
+            fail("Invalid v3 artifact root: %s" % identity)
         for classifier, sha in info["shasums"].items():
             parsed = coordinates_from_identity(identity, info["version"])
             parsed["classifier"] = classifier
             coordinate = to_external_form(parsed)
+            key = to_key(parsed)
+            if key in identities:
+                fail("Duplicate artifact identity: %s" % key)
+            identities[key] = True
             records[coordinate] = [coordinate, sha, 0]
-    identities = {to_key(parse_external_form(row[0])): True for row in records.values()}
-    for identity in contents.get("skipped", []):
+    for raw_identity in contents.get("skipped", []):
+        identity = canonical_identity(raw_identity)
         if identity in identities:
             continue
         parsed = coordinates_from_identity(identity, "")

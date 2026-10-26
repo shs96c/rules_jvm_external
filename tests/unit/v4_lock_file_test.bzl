@@ -62,20 +62,39 @@ def _classified_named_versions_reach_legacy_consumers_unambiguously_impl(ctx):
 
 classified_named_versions_reach_legacy_consumers_unambiguously_test = unittest.make(_classified_named_versions_reach_legacy_consumers_unambiguously_impl)
 
-def _render_invalid_graph_impl(_ctx):
+def _legacy_identity_aliases_are_canonicalised_impl(ctx):
+    env = unittest.begin(ctx)
     lock = _legacy()
-    lock["dependencies"] = {"g:a": ["g:missing"]}
+    lock["m2local"] = True
+    lock["repositories"] = {"repo/": ["g:a:jar", "g:a:jar:sources"]}
+    lock["skipped"] = ["g:a:jar:sources", "g:a:jar"]
+    lock["dependencies"] = {"g:a:jar": ["g:a:jar:sources"]}
+    converted = json.decode(v4_lock_file.render_lock_file(lock, canonical_inputs()))
+    asserts.equals(env, "a" * 64, converted["artifacts"][0][1])
+    asserts.equals(env, [], converted["m2local_artifacts"])
+    asserts.equals(env, ["g:a", "g:a:jar:sources"], converted["skipped"])
+    asserts.equals(env, {"g:a": ["g:a:jar:sources"]}, converted["dependencies"])
+    return unittest.end(env)
+
+legacy_identity_aliases_are_canonicalised_test = unittest.make(_legacy_identity_aliases_are_canonicalised_impl)
+
+def _render_invalid_graph_impl(ctx):
+    lock = _legacy()
+    if ctx.attr.duplicate:
+        lock["artifacts"]["g:a:jar"] = {"version": "2", "shasums": {"jar": "a" * 64}}
+    else:
+        lock["dependencies"] = {"g:a": ["g:missing"]}
     v4_lock_file.render_lock_file(lock, canonical_inputs())
     return []
 
-_render_invalid_graph = rule(implementation = _render_invalid_graph_impl)
+_render_invalid_graph = rule(implementation = _render_invalid_graph_impl, attrs = {"duplicate": attr.bool()})
 
 def _invalid_graph_is_not_written_impl(ctx):
     env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "Cannot pin lock file with missing dependencies")
+    asserts.expect_failure(env, ctx.attr.message)
     return analysistest.end(env)
 
-_invalid_graph_is_not_written_test = analysistest.make(_invalid_graph_is_not_written_impl, expect_failure = True)
+_invalid_graph_is_not_written_test = analysistest.make(_invalid_graph_is_not_written_impl, expect_failure = True, attrs = {"message": attr.string(default = "Cannot pin lock file with missing dependencies")})
 
 def v4_lock_file_test_suite():
     unittest.suite(
@@ -83,6 +102,10 @@ def v4_lock_file_test_suite():
         compact_records_round_trip_inputs_and_keep_merge_separators_test,
         bom_only_and_unselected_requests_are_retained_test,
         classified_named_versions_reach_legacy_consumers_unambiguously_test,
+        legacy_identity_aliases_are_canonicalised_test,
     )
     _render_invalid_graph(name = "render_invalid_graph", tags = ["manual"])
     _invalid_graph_is_not_written_test(name = "invalid_graph_is_not_written_test", target_under_test = ":render_invalid_graph")
+
+    _render_invalid_graph(name = "render_duplicate_identity", duplicate = True, tags = ["manual"])
+    _invalid_graph_is_not_written_test(name = "duplicate_identity_is_not_written_test", target_under_test = ":render_duplicate_identity", message = "Duplicate artifact identity")
