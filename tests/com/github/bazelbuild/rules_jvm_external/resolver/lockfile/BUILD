@@ -21,7 +21,7 @@ java_test(
 java_test(
     name = "V3LockFileTest",
     srcs = ["V3LockFileTest.java"],
-    resources = ["//:maven_install.json"],
+    resources = ["//tests/custom_maven_install:v3_lock_file_format_install.json"],
     test_class = "com.github.bazelbuild.rules_jvm_external.resolver.lockfile.V3LockFileTest",
     deps = [
         "//private/tools/java/com/github/bazelbuild/rules_jvm_external",
