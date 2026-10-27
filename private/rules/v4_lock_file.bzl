@@ -69,7 +69,7 @@ def _render(contents, inputs, include_files = False):
     attach_requests(converted, inputs)
     hashes = compute_hashes(converted)
     if None in hashes.values():
-        fail("Cannot pin lock file with missing dependencies")
+        fail("Cannot pin lock file with missing dependencies: %s" % ", ".join([identity for identity, value in hashes.items() if value == None]))
     for row in converted["artifacts"]:
         row[2] = hashes[to_key(parse_external_form(row[0]))]
     entries = ["  %s: %s" % (json.encode(key), _render_value(key, converted[key])) for key in sorted(converted)]

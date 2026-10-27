@@ -1506,7 +1506,7 @@ def _coursier_fetch_impl(repository_ctx):
     )
     for repo in repositories:
         reformat_lock_file_cmd.extend(["--repo", repo["repo_url"]])
-    reformat_lock_file_cmd.extend(["--json", "coursier-deps.json"])
+    reformat_lock_file_cmd.extend(["--json", "coursier-deps.json", "--cache", str(repository_ctx.path(coursier_cache_path))])
 
     # But update the format to the latest lock file
     result = _execute(
