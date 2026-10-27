@@ -93,6 +93,16 @@ public class V4RequestsTest {
     assertEquals(List.of(explicit), V4Requests.attach(List.of(aar), List.of(explicit)));
   }
 
+  @Test
+  public void shouldInferDownloadPackagingWhenPomIsAlsoPresent() {
+    V4Artifact json = artifact("json", "", "2");
+    V4Artifact pom = artifact("pom", "", "2");
+    V4Requests.attach(
+        List.of(pom, json), List.of(Map.of("group", "g", "artifact", "a", "version", "2")));
+    assertEquals(List.of(Map.of()), json.metadata.get("requests"));
+    assertTrue(pom.metadata.isEmpty());
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void shouldRejectAmbiguousInferredPackaging() {
     V4Requests.attach(

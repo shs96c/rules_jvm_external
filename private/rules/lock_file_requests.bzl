@@ -26,6 +26,8 @@ def _select(request, candidates):
     jars = [row for row, parsed in matching if (parsed.packaging or "jar") == "jar"]
     if jars:
         return jars[0]
+    downloads = [(row, parsed) for row, parsed in matching if parsed.packaging != "pom"]
+    matching = downloads or matching
     if len(matching) > 1:
         fail("Ambiguous packaging for request %s:%s" % (request["group"], request["artifact"]))
     return matching[0][0] if matching else None

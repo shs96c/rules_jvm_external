@@ -39,10 +39,23 @@ def _infers_packaging_only_when_omitted_impl(ctx):
 
 infers_packaging_only_when_omitted_test = unittest.make(_infers_packaging_only_when_omitted_impl)
 
+def _infers_download_packaging_when_pom_is_also_present_impl(ctx):
+    env = unittest.begin(ctx)
+    inputs = canonical_inputs(artifacts = [{"group": "g", "artifact": "a", "version": "1"}])
+    lock = {"artifacts": [["g:a:1@json", None, 0], ["g:a:1@pom", None, 0]]}
+    attach_requests(lock, inputs)
+    asserts.equals(env, [{}], lock["artifacts"][0][3]["requests"])
+    asserts.equals(env, 3, len(lock["artifacts"][1]))
+    asserts.equals(env, inputs, read_inputs(lock))
+    return unittest.end(env)
+
+infers_download_packaging_when_pom_is_also_present_test = unittest.make(_infers_download_packaging_when_pom_is_also_present_impl)
+
 def lock_file_requests_test_suite():
     unittest.suite(
         "lock_file_requests_tests",
         declared_version_is_preserved_when_selection_differs_test,
         missing_classifier_is_not_attached_to_main_jar_test,
         infers_packaging_only_when_omitted_test,
+        infers_download_packaging_when_pom_is_also_present_test,
     )

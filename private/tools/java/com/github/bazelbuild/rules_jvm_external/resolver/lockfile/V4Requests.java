@@ -73,6 +73,10 @@ final class V4Requests {
         }
       }
     }
+    if (candidates.stream()
+        .anyMatch(artifact -> !"pom".equals(artifact.coordinates.getExtension()))) {
+      candidates.removeIf(artifact -> "pom".equals(artifact.coordinates.getExtension()));
+    }
     if (candidates.size() > 1) {
       throw new IllegalArgumentException(
           "Ambiguous selected packaging for request " + V4Json.compact(request));
