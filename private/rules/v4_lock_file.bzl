@@ -14,7 +14,7 @@
 
 """Merge-friendly lock documents with explicit inputs and local record hashes."""
 
-load("//private/lib:coordinates.bzl", "to_key")
+load("//private/lib:coordinates.bzl", "to_key", "unpack_coordinates")
 load(":lock_file_records.bzl", "compute_hashes", "normalise_v3", "parse_external_form", "records_by_identity", "records_from_v3", "stored_hashes")
 load(":lock_file_requests.bzl", "attach_requests", "read_inputs")
 load(":v3_lock_file.bzl", "v3_lock_file")
@@ -34,7 +34,7 @@ def _get_artifacts(contents):
         legacy = dict(contents)
         legacy["artifacts"] = {root: {"version": parsed.version, "shasums": {parsed.classifier or "jar": row[1]}}}
         artifact = v3_lock_file.get_artifacts(legacy)[0]
-        if parsed.classifier and not parsed.packaging:
+        if parsed.classifier and unpack_coordinates(artifact["coordinates"]).classifier != parsed.classifier:
             # Legacy consumers otherwise mistake named versions for packaging.
             artifact["coordinates"] = "%s:%s:jar:%s:%s" % (parsed.group, parsed.artifact, parsed.classifier, parsed.version)
         artifacts.append(artifact)

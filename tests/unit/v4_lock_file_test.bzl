@@ -1,5 +1,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
+load("//private:coursier_utilities.bzl", "to_repository_name")
 load("//private/rules:lock_file_inputs.bzl", "canonical_inputs")
+load("//private/rules:v3_lock_file.bzl", "v3_lock_file")
 load("//private/rules:v4_lock_file.bzl", "v4_lock_file")
 
 def _legacy():
@@ -50,6 +52,20 @@ def _bom_only_and_unselected_requests_are_retained_impl(ctx):
     return unittest.end(env)
 
 bom_only_and_unselected_requests_are_retained_test = unittest.make(_bom_only_and_unselected_requests_are_retained_impl)
+
+def _classified_numeric_versions_keep_legacy_repository_names_impl(ctx):
+    env = unittest.begin(ctx)
+    lock = _legacy()
+    lock["artifacts"] = {"g:a": {"version": "1.2.3", "shasums": {"test-fixtures": "a" * 64}}}
+    lock["repositories"] = {"repo/": ["g:a:jar:test-fixtures"]}
+    lock["skipped"] = []
+    pinned = json.decode(v4_lock_file.render_lock_file(lock, canonical_inputs()))
+    artifact = v4_lock_file.get_artifacts(pinned)[0]
+    asserts.equals(env, v3_lock_file.get_artifacts(lock)[0], artifact)
+    asserts.equals(env, "g_a_test_fixtures_1_2_3", to_repository_name(artifact["coordinates"]))
+    return unittest.end(env)
+
+classified_numeric_versions_keep_legacy_repository_names_test = unittest.make(_classified_numeric_versions_keep_legacy_repository_names_impl)
 
 def _classified_named_versions_reach_legacy_consumers_unambiguously_impl(ctx):
     env = unittest.begin(ctx)
@@ -102,6 +118,7 @@ def v4_lock_file_test_suite():
         compact_records_round_trip_inputs_and_keep_merge_separators_test,
         bom_only_and_unselected_requests_are_retained_test,
         classified_named_versions_reach_legacy_consumers_unambiguously_test,
+        classified_numeric_versions_keep_legacy_repository_names_test,
         legacy_identity_aliases_are_canonicalised_test,
     )
     _render_invalid_graph(name = "render_invalid_graph", tags = ["manual"])
